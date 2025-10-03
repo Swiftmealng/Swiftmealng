@@ -30,3 +30,11 @@ yarn-error.log
 # husky
 .husky/
 commitlint.config.js
+
+#server
+# Server specific
+server/node_modules/
+server/dist/
+server/.env
+server/logs/*.log
+server/coverage/
