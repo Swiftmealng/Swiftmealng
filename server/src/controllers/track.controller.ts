@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
-import asyncHandler from '../utils/asyncHandler';
-import Order from '../models/Order';
-import { NotFoundError } from '../utils/AppError';
+import { Request, Response } from "express";
+import asyncHandler from "../utils/asyncHandler";
+import Order from "../models/Order";
+import { NotFoundError } from "../utils/AppError";
 
 /**
  * @desc    Get order tracking by order number (public)
@@ -13,11 +13,11 @@ export const getOrderTracking = asyncHandler(
     const { orderNumber } = req.params;
 
     const order = await Order.findOne({ orderNumber })
-      .populate('riderId', 'name phone photo currentLocation')
-      .select('-customer.customerId -__v');
+      .populate("riderId", "name phone photo currentLocation")
+      .select("-customer.customerId -__v");
 
     if (!order) {
-      throw new NotFoundError('Order not found');
+      throw new NotFoundError("Order not found");
     }
 
     res.status(200).json({
@@ -31,9 +31,9 @@ export const getOrderTracking = asyncHandler(
           isDelayed: order.isDelayed,
           delayMinutes: order.delayMinutes,
           tracking: order.trackingEvents,
-          rider: order.riderId
-        }
-      }
+          rider: order.riderId,
+        },
+      },
     });
-  }
+  },
 );

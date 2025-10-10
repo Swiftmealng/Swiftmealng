@@ -93,7 +93,7 @@ const userSchema = new Schema<IUser>(
   {
     timestamps: true,
     autoIndex: process.env.NODE_ENV !== "production",
-  }
+  },
 );
 
 userSchema.pre<IUser>("save", async function (next) {
@@ -106,7 +106,7 @@ userSchema.pre<IUser>("save", async function (next) {
 
 userSchema.methods.comparePassword = async function (
   this: IUser,
-  candidatePassword: string
+  candidatePassword: string,
 ): Promise<boolean> {
   return await bcrypt.compare(candidatePassword, this.password as string);
 };

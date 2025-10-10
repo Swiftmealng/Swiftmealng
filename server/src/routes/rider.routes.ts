@@ -1,7 +1,7 @@
-import express from 'express';
-import * as riderController from '../controllers/rider.controller';
-import { protect, restrictTo } from '../middleware/auth.middleware';
-import { uploadSingle } from '../middleware/upload.middleware';
+import express from "express";
+import * as riderController from "../controllers/rider.controller";
+import { protect, restrictTo } from "../middleware/auth.middleware";
+import { uploadSingle } from "../middleware/upload.middleware";
 
 const router = express.Router();
 
@@ -66,7 +66,7 @@ router.use(protect);
  *       401:
  *         description: Not authenticated
  */
-router.post('/location', riderController.updateLocation);
+router.post("/location", riderController.updateLocation);
 
 /**
  * @swagger
@@ -127,7 +127,11 @@ router.post('/location', riderController.updateLocation);
  *       401:
  *         description: Not authenticated
  */
-router.get('/:riderId/performance', restrictTo('operations', 'admin'), riderController.getRiderPerformance);
+router.get(
+  "/:riderId/performance",
+  restrictTo("operations", "admin"),
+  riderController.getRiderPerformance,
+);
 
 /**
  * @swagger
@@ -176,6 +180,11 @@ router.get('/:riderId/performance', restrictTo('operations', 'admin'), riderCont
  *       401:
  *         description: Not authenticated
  */
-router.post('/:riderId/photo', restrictTo('admin'), uploadSingle('photo'), riderController.uploadPhoto);
+router.post(
+  "/:riderId/photo",
+  restrictTo("admin"),
+  uploadSingle("photo"),
+  riderController.uploadPhoto,
+);
 
 export default router;

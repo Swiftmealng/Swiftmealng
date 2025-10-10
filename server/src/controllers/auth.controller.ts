@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
-import asyncHandler from '../utils/asyncHandler';
-import * as authService from '../services/auth.service';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { Request, Response } from "express";
+import asyncHandler from "../utils/asyncHandler";
+import * as authService from "../services/auth.service";
+import { AuthRequest } from "../middleware/auth.middleware";
 
 /**
  * @desc    Login user
@@ -11,28 +11,31 @@ import { AuthRequest } from '../middleware/auth.middleware';
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  const { user, accessToken, refreshToken } = await authService.loginUser(email, password);
+  const { user, accessToken, refreshToken } = await authService.loginUser(
+    email,
+    password,
+  );
 
-  res.cookie('accessToken', accessToken, {
+  res.cookie("accessToken", accessToken, {
     expires: new Date(Date.now() + 15 * 60 * 1000),
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
   });
 
-  res.cookie('refreshToken', refreshToken, {
+  res.cookie("refreshToken", refreshToken, {
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
   });
 
   res.status(200).json({
     success: true,
     data: {
       user,
-      accessToken
-    }
+      accessToken,
+    },
   });
 });
 
@@ -49,15 +52,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     email,
     password,
     phone,
-    role
+    role,
   });
 
   res.status(201).json({
     success: true,
     message,
     data: {
-      user
-    }
+      user,
+    },
   });
 });
 
@@ -68,24 +71,24 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
  */
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
-  
+
   if (authReq.user) {
     await authService.logoutUser(authReq.user.id);
   }
 
-  res.cookie('accessToken', '', {
+  res.cookie("accessToken", "", {
     expires: new Date(0),
-    httpOnly: true
+    httpOnly: true,
   });
 
-  res.cookie('refreshToken', '', {
+  res.cookie("refreshToken", "", {
     expires: new Date(0),
-    httpOnly: true
+    httpOnly: true,
   });
 
   res.status(200).json({
     success: true,
-    message: 'Logged out successfully'
+    message: "Logged out successfully",
   });
 });
 
@@ -101,7 +104,7 @@ export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
 
   res.status(200).json({
     success: true,
-    message: result.message
+    message: result.message,
   });
 });
 
@@ -117,7 +120,7 @@ export const resendCode = asyncHandler(async (req: Request, res: Response) => {
 
   res.status(200).json({
     success: true,
-    message: result.message
+    message: result.message,
   });
 });
 
@@ -126,54 +129,60 @@ export const resendCode = asyncHandler(async (req: Request, res: Response) => {
  * @route   POST /api/v1/auth/refresh-token
  * @access  Public
  */
-export const refreshToken = asyncHandler(async (req: Request, res: Response) => {
-  const refreshToken = req.cookies.refreshToken;
+export const refreshToken = asyncHandler(
+  async (req: Request, res: Response) => {
+    const refreshToken = req.cookies.refreshToken;
 
-  const { accessToken } = await authService.refreshAccessToken(refreshToken);
+    const { accessToken } = await authService.refreshAccessToken(refreshToken);
 
-  res.cookie('accessToken', accessToken, {
-    expires: new Date(Date.now() + 15 * 60 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
-  });
+    res.cookie("accessToken", accessToken, {
+      expires: new Date(Date.now() + 15 * 60 * 1000),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
 
-  res.status(200).json({
-    success: true,
-    data: {
-      accessToken
-    }
-  });
-});
+    res.status(200).json({
+      success: true,
+      data: {
+        accessToken,
+      },
+    });
+  },
+);
 
 /**
  * @desc    Request password reset
  * @route   POST /api/v1/auth/forgot-password
  * @access  Public
  */
-export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
-  const { email } = req.body;
+export const forgotPassword = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { email } = req.body;
 
-  const result = await authService.requestPasswordReset(email);
+    const result = await authService.requestPasswordReset(email);
 
-  res.status(200).json({
-    success: true,
-    message: result.message
-  });
-});
+    res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  },
+);
 
 /**
  * @desc    Reset password with code
  * @route   POST /api/v1/auth/reset-password
  * @access  Public
  */
-export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
-  const { email, code, newPassword } = req.body;
+export const resetPassword = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { email, code, newPassword } = req.body;
 
-  const result = await authService.resetPassword(email, code, newPassword);
+    const result = await authService.resetPassword(email, code, newPassword);
 
-  res.status(200).json({
-    success: true,
-    message: result.message
-  });
-});
+    res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  },
+);

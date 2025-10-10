@@ -1,12 +1,12 @@
-import express from 'express';
-import * as orderController from '../controllers/order.controller';
-import { protect } from '../middleware/auth.middleware';
-import validate from '../middleware/validation.middleware';
+import express from "express";
+import * as orderController from "../controllers/order.controller";
+import { protect } from "../middleware/auth.middleware";
+import validate from "../middleware/validation.middleware";
 import {
   createOrderSchema,
   updateOrderStatusSchema,
-  getOrdersSchema
-} from '../validators/order.validator';
+  getOrdersSchema,
+} from "../validators/order.validator";
 
 const router = express.Router();
 
@@ -100,7 +100,7 @@ router.use(protect);
  *       401:
  *         description: Not authenticated
  */
-router.post('/', validate(createOrderSchema), orderController.createOrder);
+router.post("/", validate(createOrderSchema), orderController.createOrder);
 
 /**
  * @swagger
@@ -173,7 +173,7 @@ router.post('/', validate(createOrderSchema), orderController.createOrder);
  *       401:
  *         description: Not authenticated
  */
-router.get('/', validate(getOrdersSchema), orderController.getOrders);
+router.get("/", validate(getOrdersSchema), orderController.getOrders);
 
 /**
  * @swagger
@@ -211,7 +211,7 @@ router.get('/', validate(getOrdersSchema), orderController.getOrders);
  *       401:
  *         description: Not authenticated
  */
-router.get('/:orderId', orderController.getOrder);
+router.get("/:orderId", orderController.getOrder);
 
 /**
  * @swagger
@@ -272,9 +272,9 @@ router.get('/:orderId', orderController.getOrder);
  *         description: Not authenticated
  */
 router.patch(
-  '/:orderId/status',
+  "/:orderId/status",
   validate(updateOrderStatusSchema),
-  orderController.updateOrderStatus
+  orderController.updateOrderStatus,
 );
 
 export default router;

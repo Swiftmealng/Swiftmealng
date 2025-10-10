@@ -1,5 +1,5 @@
-import express from 'express';
-import * as trackController from '../controllers/track.controller';
+import express from "express";
+import * as trackController from "../controllers/track.controller";
 
 const router = express.Router();
 
@@ -99,6 +99,6 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/:orderNumber', trackController.getOrderTracking);
+router.get("/:orderNumber", trackController.getOrderTracking);
 
 export default router;

@@ -1,44 +1,53 @@
-import User from '../models/User';
-import { AuthenticationError } from '../utils/AppError';
-import { generateToken } from '../utils/generateToken';
-import { sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail } from './email.service';
-import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
+import User from "../models/User";
+import { AuthenticationError } from "../utils/AppError";
+import { generateToken } from "../utils/generateToken";
+import {
+  sendVerificationEmail,
+  sendWelcomeEmail,
+  sendPasswordResetEmail,
+} from "./email.service";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export const generateVerificationCode = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 export const generateRefreshToken = (): string => {
-  return crypto.randomBytes(64).toString('hex');
+  return crypto.randomBytes(64).toString("hex");
 };
 
 export const loginUser = async (email: string, password: string) => {
-  const user = await User.findOne({ email }).select('+password +refreshToken +refreshTokenExpires');
+  const user = await User.findOne({ email }).select(
+    "+password +refreshToken +refreshTokenExpires",
+  );
 
   if (!user) {
-    throw new AuthenticationError('Invalid email or password');
+    throw new AuthenticationError("Invalid email or password");
   }
 
   const isPasswordCorrect = await user.comparePassword(password);
 
   if (!isPasswordCorrect) {
-    throw new AuthenticationError('Invalid email or password');
+    throw new AuthenticationError("Invalid email or password");
   }
 
   if (!user.isEmailVerified) {
-    throw new AuthenticationError('Please verify your email before logging in');
+    throw new AuthenticationError("Please verify your email before logging in");
   }
 
-  const accessToken = generateToken({
-    id: String(user._id),
-    email: user.email,
-    role: user.role
-  }, process.env.ACCESS_TOKEN_EXPIRES_IN || '15m');
+  const accessToken = generateToken(
+    {
+      id: String(user._id),
+      email: user.email,
+      role: user.role,
+    },
+    process.env.ACCESS_TOKEN_EXPIRES_IN || "15m",
+  );
 
   const refreshToken = generateRefreshToken();
   const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-  
+
   user.refreshToken = hashedRefreshToken;
   user.refreshTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   await user.save();
@@ -61,7 +70,7 @@ export const registerUser = async (userData: {
   const existingUser = await User.findOne({ email: userData.email });
 
   if (existingUser) {
-    throw new AuthenticationError('User with this email already exists');
+    throw new AuthenticationError("User with this email already exists");
   }
 
   const verificationCode = generateVerificationCode();
@@ -81,27 +90,32 @@ export const registerUser = async (userData: {
   delete userObject.verificationCode;
   delete userObject.verificationCodeExpires;
 
-  return { user: userObject, message: 'Verification code sent to your email' };
+  return { user: userObject, message: "Verification code sent to your email" };
 };
 
 export const verifyEmail = async (email: string, code: string) => {
   const user = await User.findOne({ email }).select(
-    '+verificationCode +verificationCodeExpires +verificationAttempts +verificationAttemptsResetAt'
+    "+verificationCode +verificationCodeExpires +verificationAttempts +verificationAttemptsResetAt",
   );
 
   if (!user) {
-    throw new AuthenticationError('User not found');
+    throw new AuthenticationError("User not found");
   }
 
   if (user.isEmailVerified) {
-    throw new AuthenticationError('Email already verified');
+    throw new AuthenticationError("Email already verified");
   }
 
   const now = new Date();
-  
-  if (user.verificationAttemptsResetAt && user.verificationAttemptsResetAt > now) {
+
+  if (
+    user.verificationAttemptsResetAt &&
+    user.verificationAttemptsResetAt > now
+  ) {
     if (user.verificationAttempts >= 3) {
-      throw new AuthenticationError('Too many attempts. Please try again later');
+      throw new AuthenticationError(
+        "Too many attempts. Please try again later",
+      );
     }
   } else {
     user.verificationAttempts = 0;
@@ -111,16 +125,20 @@ export const verifyEmail = async (email: string, code: string) => {
   user.verificationAttempts += 1;
 
   if (!user.verificationCode || !user.verificationCodeExpires) {
-    throw new AuthenticationError('No verification code found. Please request a new one');
+    throw new AuthenticationError(
+      "No verification code found. Please request a new one",
+    );
   }
 
   if (user.verificationCodeExpires < now) {
-    throw new AuthenticationError('Verification code expired. Please request a new one');
+    throw new AuthenticationError(
+      "Verification code expired. Please request a new one",
+    );
   }
 
   if (user.verificationCode !== code) {
     await user.save();
-    throw new AuthenticationError('Invalid verification code');
+    throw new AuthenticationError("Invalid verification code");
   }
 
   user.isEmailVerified = true;
@@ -132,27 +150,32 @@ export const verifyEmail = async (email: string, code: string) => {
 
   await sendWelcomeEmail(user.email);
 
-  return { message: 'Email verified successfully' };
+  return { message: "Email verified successfully" };
 };
 
 export const resendVerificationCode = async (email: string) => {
   const user = await User.findOne({ email }).select(
-    '+verificationAttempts +verificationAttemptsResetAt'
+    "+verificationAttempts +verificationAttemptsResetAt",
   );
 
   if (!user) {
-    throw new AuthenticationError('User not found');
+    throw new AuthenticationError("User not found");
   }
 
   if (user.isEmailVerified) {
-    throw new AuthenticationError('Email already verified');
+    throw new AuthenticationError("Email already verified");
   }
 
   const now = new Date();
 
-  if (user.verificationAttemptsResetAt && user.verificationAttemptsResetAt > now) {
+  if (
+    user.verificationAttemptsResetAt &&
+    user.verificationAttemptsResetAt > now
+  ) {
     if (user.verificationAttempts >= 3) {
-      throw new AuthenticationError('Too many resend attempts. Please try again later');
+      throw new AuthenticationError(
+        "Too many resend attempts. Please try again later",
+      );
     }
   } else {
     user.verificationAttempts = 0;
@@ -168,33 +191,36 @@ export const resendVerificationCode = async (email: string) => {
 
   await sendVerificationEmail(user.email, verificationCode);
 
-  return { message: 'New verification code sent to your email' };
+  return { message: "New verification code sent to your email" };
 };
 
 export const refreshAccessToken = async (refreshToken: string) => {
   if (!refreshToken) {
-    throw new AuthenticationError('Refresh token required');
+    throw new AuthenticationError("Refresh token required");
   }
 
   const user = await User.findOne({
     refreshTokenExpires: { $gt: new Date() },
-  }).select('+refreshToken +refreshTokenExpires');
+  }).select("+refreshToken +refreshTokenExpires");
 
   if (!user || !user.refreshToken) {
-    throw new AuthenticationError('Invalid or expired refresh token');
+    throw new AuthenticationError("Invalid or expired refresh token");
   }
 
   const isValidToken = await bcrypt.compare(refreshToken, user.refreshToken);
 
   if (!isValidToken) {
-    throw new AuthenticationError('Invalid or expired refresh token');
+    throw new AuthenticationError("Invalid or expired refresh token");
   }
 
-  const accessToken = generateToken({
-    id: String(user._id),
-    email: user.email,
-    role: user.role
-  }, process.env.ACCESS_TOKEN_EXPIRES_IN || '15m');
+  const accessToken = generateToken(
+    {
+      id: String(user._id),
+      email: user.email,
+      role: user.role,
+    },
+    process.env.ACCESS_TOKEN_EXPIRES_IN || "15m",
+  );
 
   return { accessToken };
 };
@@ -204,14 +230,14 @@ export const logoutUser = async (userId: string) => {
     $unset: { refreshToken: 1, refreshTokenExpires: 1 },
   });
 
-  return { message: 'Logged out successfully' };
+  return { message: "Logged out successfully" };
 };
 
 export const requestPasswordReset = async (email: string) => {
   const user = await User.findOne({ email });
 
   if (!user) {
-    throw new AuthenticationError('User not found');
+    throw new AuthenticationError("User not found");
   }
 
   const resetCode = generateVerificationCode();
@@ -221,28 +247,36 @@ export const requestPasswordReset = async (email: string) => {
 
   await sendPasswordResetEmail(user.email, resetCode);
 
-  return { message: 'Password reset code sent to your email' };
+  return { message: "Password reset code sent to your email" };
 };
 
-export const resetPassword = async (email: string, code: string, newPassword: string) => {
+export const resetPassword = async (
+  email: string,
+  code: string,
+  newPassword: string,
+) => {
   const user = await User.findOne({ email }).select(
-    '+verificationCode +verificationCodeExpires'
+    "+verificationCode +verificationCodeExpires",
   );
 
   if (!user) {
-    throw new AuthenticationError('User not found');
+    throw new AuthenticationError("User not found");
   }
 
   if (!user.verificationCode || !user.verificationCodeExpires) {
-    throw new AuthenticationError('No reset code found. Please request a new one');
+    throw new AuthenticationError(
+      "No reset code found. Please request a new one",
+    );
   }
 
   if (user.verificationCodeExpires < new Date()) {
-    throw new AuthenticationError('Reset code expired. Please request a new one');
+    throw new AuthenticationError(
+      "Reset code expired. Please request a new one",
+    );
   }
 
   if (user.verificationCode !== code) {
-    throw new AuthenticationError('Invalid reset code');
+    throw new AuthenticationError("Invalid reset code");
   }
 
   user.password = newPassword;
@@ -252,5 +286,5 @@ export const resetPassword = async (email: string, code: string, newPassword: st
   user.refreshTokenExpires = undefined;
   await user.save();
 
-  return { message: 'Password reset successfully' };
+  return { message: "Password reset successfully" };
 };
