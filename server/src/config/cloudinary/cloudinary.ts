@@ -1,5 +1,5 @@
-import { v2 as cloudinary } from 'cloudinary';
-import Logger from '../../utils/logger';
+import { v2 as cloudinary } from "cloudinary";
+import Logger from "../../utils/logger";
 
 // Configure Cloudinary
 const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -10,11 +10,13 @@ if (cloudName && apiKey && apiSecret) {
   cloudinary.config({
     cloud_name: cloudName,
     api_key: apiKey,
-    api_secret: apiSecret
+    api_secret: apiSecret,
   });
-  Logger.info('Cloudinary configured', { cloudName });
+  Logger.info("Cloudinary configured", { cloudName });
 } else {
-  Logger.warn('Cloudinary credentials not found. Image upload functionality disabled.');
+  Logger.warn(
+    "Cloudinary credentials not found. Image upload functionality disabled.",
+  );
 }
 
 interface UploadOptions {
@@ -25,7 +27,7 @@ interface UploadOptions {
     crop?: string;
     quality?: string | number;
   };
-  resource_type?: 'image' | 'video' | 'raw' | 'auto';
+  resource_type?: "image" | "video" | "raw" | "auto";
 }
 
 /**
@@ -33,16 +35,18 @@ interface UploadOptions {
  */
 export const uploadToCloudinary = async (
   fileBuffer: Buffer,
-  options: UploadOptions = {}
+  options: UploadOptions = {},
 ): Promise<{ url: string; publicId: string }> => {
   if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error('Cloudinary not configured. Please add credentials to .env');
+    throw new Error(
+      "Cloudinary not configured. Please add credentials to .env",
+    );
   }
 
   return new Promise((resolve, reject) => {
     const uploadOptions: any = {
-      folder: options.folder || 'swiftmeal',
-      resource_type: options.resource_type || 'image',
+      folder: options.folder || "swiftmeal",
+      resource_type: options.resource_type || "image",
     };
 
     // Apply transformations if provided
@@ -54,21 +58,21 @@ export const uploadToCloudinary = async (
       uploadOptions,
       (error, result) => {
         if (error) {
-          Logger.error('Cloudinary upload failed', { error: error.message });
+          Logger.error("Cloudinary upload failed", { error: error.message });
           reject(error);
         } else if (result) {
-          Logger.info('File uploaded to Cloudinary', { 
+          Logger.info("File uploaded to Cloudinary", {
             publicId: result.public_id,
-            url: result.secure_url 
+            url: result.secure_url,
           });
           resolve({
             url: result.secure_url,
-            publicId: result.public_id
+            publicId: result.public_id,
           });
         } else {
-          reject(new Error('Upload failed - no result returned'));
+          reject(new Error("Upload failed - no result returned"));
         }
-      }
+      },
     );
 
     uploadStream.end(fileBuffer);
@@ -80,13 +84,13 @@ export const uploadToCloudinary = async (
  */
 export const uploadRiderPhoto = async (fileBuffer: Buffer): Promise<string> => {
   const result = await uploadToCloudinary(fileBuffer, {
-    folder: 'swiftmeal/riders',
+    folder: "swiftmeal/riders",
     transformation: {
       width: 500,
       height: 500,
-      crop: 'fill',
-      quality: 'auto'
-    }
+      crop: "fill",
+      quality: "auto",
+    },
   });
 
   return result.url;
@@ -97,14 +101,17 @@ export const uploadRiderPhoto = async (fileBuffer: Buffer): Promise<string> => {
  */
 export const deleteFromCloudinary = async (publicId: string): Promise<void> => {
   if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error('Cloudinary not configured');
+    throw new Error("Cloudinary not configured");
   }
 
   try {
     await cloudinary.uploader.destroy(publicId);
-    Logger.info('File deleted from Cloudinary', { publicId });
+    Logger.info("File deleted from Cloudinary", { publicId });
   } catch (error: any) {
-    Logger.error('Cloudinary deletion failed', { error: error.message, publicId });
+    Logger.error("Cloudinary deletion failed", {
+      error: error.message,
+      publicId,
+    });
     throw error;
   }
 };

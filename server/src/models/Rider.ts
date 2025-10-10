@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema } from "mongoose";
 
 export interface IRider extends Document {
   name: string;
@@ -9,7 +9,7 @@ export interface IRider extends Document {
     type: string;
     coordinates: [number, number]; // [longitude, latitude]
   };
-  status: 'available' | 'busy' | 'offline';
+  status: "available" | "busy" | "offline";
   totalDeliveries: number;
   onTimeDeliveries: number;
   lateDeliveries: number;
@@ -24,84 +24,84 @@ const RiderSchema: Schema = new Schema(
   {
     name: {
       type: String,
-      required: [true, 'Rider name is required'],
-      trim: true
+      required: [true, "Rider name is required"],
+      trim: true,
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
+      required: [true, "Email is required"],
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
     },
     phone: {
       type: String,
-      required: [true, 'Phone number is required'],
-      trim: true
+      required: [true, "Phone number is required"],
+      trim: true,
     },
     photo: {
       type: String,
-      default: null
+      default: null,
     },
     currentLocation: {
       type: {
         type: String,
-        enum: ['Point'],
-        default: 'Point'
+        enum: ["Point"],
+        default: "Point",
       },
       coordinates: {
         type: [Number], // [longitude, latitude]
-        default: [0, 0]
-      }
+        default: [0, 0],
+      },
     },
     status: {
       type: String,
-      enum: ['available', 'busy', 'offline'],
-      default: 'offline'
+      enum: ["available", "busy", "offline"],
+      default: "offline",
     },
     totalDeliveries: {
       type: Number,
       default: 0,
-      min: 0
+      min: 0,
     },
     onTimeDeliveries: {
       type: Number,
       default: 0,
-      min: 0
+      min: 0,
     },
     lateDeliveries: {
       type: Number,
       default: 0,
-      min: 0
+      min: 0,
     },
     onTimePercentage: {
       type: Number,
       default: 100,
       min: 0,
-      max: 100
+      max: 100,
     },
     averageDeliveryTime: {
       type: Number,
       default: 0,
-      min: 0
+      min: 0,
     },
     rating: {
       type: Number,
       default: 5.0,
       min: 0,
-      max: 5
-    }
+      max: 5,
+    },
   },
   {
-    timestamps: true
-  }
+    timestamps: true,
+  },
 );
 
 // Create geospatial index for location queries
-RiderSchema.index({ currentLocation: '2dsphere' });
+RiderSchema.index({ currentLocation: "2dsphere" });
 
 // Index for faster queries
 RiderSchema.index({ status: 1 });
 RiderSchema.index({ email: 1 });
 
-export default mongoose.model<IRider>('Rider', RiderSchema);
+export default mongoose.model<IRider>("Rider", RiderSchema);

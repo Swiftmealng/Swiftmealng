@@ -1,12 +1,12 @@
-import express from 'express';
-import * as notificationController from '../controllers/notification.controller';
-import { protect, restrictTo } from '../middleware/auth.middleware';
+import express from "express";
+import * as notificationController from "../controllers/notification.controller";
+import { protect, restrictTo } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
 // All notification routes require authentication and admin access
 router.use(protect);
-router.use(restrictTo('admin', 'operations'));
+router.use(restrictTo("admin", "operations"));
 
 /**
  * @swagger
@@ -68,6 +68,6 @@ router.use(restrictTo('admin', 'operations'));
  *       403:
  *         description: Insufficient permissions
  */
-router.post('/send', notificationController.sendNotification);
+router.post("/send", notificationController.sendNotification);
 
 export default router;

@@ -1,11 +1,15 @@
-import nodemailer from 'nodemailer';
-import Logger from '../utils/logger';
+import nodemailer from "nodemailer";
+import Logger from "../utils/logger";
 
 let transporter: nodemailer.Transporter | null = null;
 
 const initializeEmailService = () => {
-  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    Logger.warn('Email credentials not found. Email functionality disabled.');
+  if (
+    !process.env.EMAIL_HOST ||
+    !process.env.EMAIL_USER ||
+    !process.env.EMAIL_PASSWORD
+  ) {
+    Logger.warn("Email credentials not found. Email functionality disabled.");
     return null;
   }
 
@@ -20,14 +24,14 @@ const initializeEmailService = () => {
       },
     });
 
-    Logger.info('Email service initialized', { 
+    Logger.info("Email service initialized", {
       host: process.env.EMAIL_HOST,
-      user: process.env.EMAIL_USER 
+      user: process.env.EMAIL_USER,
     });
 
     return transporter;
   } catch (error) {
-    Logger.error('Failed to initialize email service', { error });
+    Logger.error("Failed to initialize email service", { error });
     return null;
   }
 };
@@ -36,10 +40,10 @@ transporter = initializeEmailService();
 
 export const sendVerificationEmail = async (
   email: string,
-  code: string
+  code: string,
 ): Promise<boolean> => {
   if (!transporter) {
-    Logger.warn('Email service not configured. Skipping verification email.');
+    Logger.warn("Email service not configured. Skipping verification email.");
     return false;
   }
 
@@ -47,7 +51,7 @@ export const sendVerificationEmail = async (
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: email,
-      subject: 'Verify Your Email - SWIFTMEAL',
+      subject: "Verify Your Email - SWIFTMEAL",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Welcome to SWIFTMEAL!</h2>
@@ -63,19 +67,17 @@ export const sendVerificationEmail = async (
       `,
     });
 
-    Logger.info('Verification email sent', { email });
+    Logger.info("Verification email sent", { email });
     return true;
   } catch (error) {
-    Logger.error('Failed to send verification email', { email, error });
+    Logger.error("Failed to send verification email", { email, error });
     return false;
   }
 };
 
-export const sendWelcomeEmail = async (
-  email: string
-): Promise<boolean> => {
+export const sendWelcomeEmail = async (email: string): Promise<boolean> => {
   if (!transporter) {
-    Logger.warn('Email service not configured. Skipping welcome email.');
+    Logger.warn("Email service not configured. Skipping welcome email.");
     return false;
   }
 
@@ -83,7 +85,7 @@ export const sendWelcomeEmail = async (
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: email,
-      subject: 'Welcome to SWIFTMEAL!',
+      subject: "Welcome to SWIFTMEAL!",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333; font-weight: bold;">Welcome to SWIFTMEAL!</h2>
@@ -97,20 +99,20 @@ export const sendWelcomeEmail = async (
       `,
     });
 
-    Logger.info('Welcome email sent', { email });
+    Logger.info("Welcome email sent", { email });
     return true;
   } catch (error) {
-    Logger.error('Failed to send welcome email', { email, error });
+    Logger.error("Failed to send welcome email", { email, error });
     return false;
   }
 };
 
 export const sendPasswordResetEmail = async (
   email: string,
-  code: string
+  code: string,
 ): Promise<boolean> => {
   if (!transporter) {
-    Logger.warn('Email service not configured. Skipping password reset email.');
+    Logger.warn("Email service not configured. Skipping password reset email.");
     return false;
   }
 
@@ -118,7 +120,7 @@ export const sendPasswordResetEmail = async (
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: email,
-      subject: 'Password Reset - SWIFTMEAL',
+      subject: "Password Reset - SWIFTMEAL",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Password Reset</h2>
@@ -134,10 +136,10 @@ export const sendPasswordResetEmail = async (
       `,
     });
 
-    Logger.info('Password reset email sent', { email });
+    Logger.info("Password reset email sent", { email });
     return true;
   } catch (error) {
-    Logger.error('Failed to send password reset email', { email, error });
+    Logger.error("Failed to send password reset email", { email, error });
     return false;
   }
 };

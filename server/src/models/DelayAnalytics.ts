@@ -112,7 +112,7 @@ const DelayAnalyticsSchema: Schema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Geospatial index for heatmap queries
@@ -127,10 +127,10 @@ DelayAnalyticsSchema.index({ timeOfDay: 1, weekday: 1 });
 // Unique constraint to prevent duplicate analytics entries
 DelayAnalyticsSchema.index(
   { date: 1, area: 1, timeOfDay: 1 },
-  { unique: true }
+  { unique: true },
 );
 
 export default mongoose.model<IDelayAnalytics>(
   "DelayAnalytics",
-  DelayAnalyticsSchema
+  DelayAnalyticsSchema,
 );

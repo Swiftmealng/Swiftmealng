@@ -1,12 +1,12 @@
-import express from 'express';
-import * as analyticsController from '../controllers/analytics.controller';
-import { protect, restrictTo } from '../middleware/auth.middleware';
+import express from "express";
+import * as analyticsController from "../controllers/analytics.controller";
+import { protect, restrictTo } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
 // All analytics routes require authentication and operations/admin role
 router.use(protect);
-router.use(restrictTo('operations', 'admin'));
+router.use(restrictTo("operations", "admin"));
 
 /**
  * @swagger
@@ -76,7 +76,7 @@ router.use(restrictTo('operations', 'admin'));
  *       403:
  *         description: Insufficient permissions
  */
-router.get('/delays/heatmap', analyticsController.getDelayHeatmap);
+router.get("/delays/heatmap", analyticsController.getDelayHeatmap);
 
 /**
  * @swagger
@@ -138,7 +138,7 @@ router.get('/delays/heatmap', analyticsController.getDelayHeatmap);
  *       403:
  *         description: Insufficient permissions
  */
-router.get('/delays/trends', analyticsController.getDelayTrends);
+router.get("/delays/trends", analyticsController.getDelayTrends);
 
 /**
  * @swagger
@@ -190,6 +190,6 @@ router.get('/delays/trends', analyticsController.getDelayTrends);
  *       403:
  *         description: Insufficient permissions
  */
-router.get('/riders/performance', analyticsController.getRidersPerformance);
+router.get("/riders/performance", analyticsController.getRidersPerformance);
 
 export default router;

@@ -1,8 +1,15 @@
-import express from 'express';
-import * as authController from '../controllers/auth.controller';
-import validate from '../middleware/validation.middleware';
-import { loginSchema, registerSchema, verifyEmailSchema, resendCodeSchema, forgotPasswordSchema, resetPasswordSchema } from '../validators/auth.validator';
-import { authenticate } from '../middleware/auth.middleware';
+import express from "express";
+import * as authController from "../controllers/auth.controller";
+import validate from "../middleware/validation.middleware";
+import {
+  loginSchema,
+  registerSchema,
+  verifyEmailSchema,
+  resendCodeSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from "../validators/auth.validator";
+import { authenticate } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
@@ -56,7 +63,7 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/login', validate(loginSchema), authController.login);
+router.post("/login", validate(loginSchema), authController.login);
 
 /**
  * @swagger
@@ -119,7 +126,7 @@ router.post('/login', validate(loginSchema), authController.login);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/register', validate(registerSchema), authController.register);
+router.post("/register", validate(registerSchema), authController.register);
 
 /**
  * @swagger
@@ -144,7 +151,7 @@ router.post('/register', validate(registerSchema), authController.register);
  *                   type: string
  *                   example: Logged out successfully
  */
-router.post('/logout', authenticate, authController.logout);
+router.post("/logout", authenticate, authController.logout);
 
 /**
  * @swagger
@@ -172,7 +179,11 @@ router.post('/logout', authenticate, authController.logout);
  *       200:
  *         description: Email verified successfully
  */
-router.post('/verify-email', validate(verifyEmailSchema), authController.verifyEmail);
+router.post(
+  "/verify-email",
+  validate(verifyEmailSchema),
+  authController.verifyEmail,
+);
 
 /**
  * @swagger
@@ -196,7 +207,11 @@ router.post('/verify-email', validate(verifyEmailSchema), authController.verifyE
  *       200:
  *         description: Verification code sent
  */
-router.post('/resend-code', validate(resendCodeSchema), authController.resendCode);
+router.post(
+  "/resend-code",
+  validate(resendCodeSchema),
+  authController.resendCode,
+);
 
 /**
  * @swagger
@@ -210,7 +225,7 @@ router.post('/resend-code', validate(resendCodeSchema), authController.resendCod
  *       200:
  *         description: New access token generated
  */
-router.post('/refresh-token', authController.refreshToken);
+router.post("/refresh-token", authController.refreshToken);
 
 /**
  * @swagger
@@ -234,7 +249,11 @@ router.post('/refresh-token', authController.refreshToken);
  *       200:
  *         description: Password reset code sent
  */
-router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
+router.post(
+  "/forgot-password",
+  validate(forgotPasswordSchema),
+  authController.forgotPassword,
+);
 
 /**
  * @swagger
@@ -267,6 +286,10 @@ router.post('/forgot-password', validate(forgotPasswordSchema), authController.f
  *       200:
  *         description: Password reset successfully
  */
-router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
+router.post(
+  "/reset-password",
+  validate(resetPasswordSchema),
+  authController.resetPassword,
+);
 
 export default router;

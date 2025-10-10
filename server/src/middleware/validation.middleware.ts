@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { ZodSchema, ZodError } from 'zod';
-import { ValidationError } from '../utils/AppError';
+import { Request, Response, NextFunction } from "express";
+import { ZodSchema, ZodError } from "zod";
+import { ValidationError } from "../utils/AppError";
 
 const validate = (schema: ZodSchema) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
@@ -8,16 +8,16 @@ const validate = (schema: ZodSchema) => {
       await schema.parseAsync({
         body: req.body,
         query: req.query,
-        params: req.params
+        params: req.params,
       });
       next();
     } catch (error) {
       if (error instanceof ZodError) {
         const messages = error.issues.map((err) => {
-          const path = err.path.join('.');
+          const path = err.path.join(".");
           return `${path}: ${err.message}`;
         });
-        throw new ValidationError(messages.join('. '));
+        throw new ValidationError(messages.join(". "));
       }
       next(error);
     }

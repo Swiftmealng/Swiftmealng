@@ -1,8 +1,8 @@
-import Rider from '../models/Rider';
-import Order from '../models/Order';
-import { NotFoundError } from '../utils/AppError';
-import { emitLocationUpdate } from '../config/socket/socket';
-import Logger from '../utils/logger';
+import Rider from "../models/Rider";
+import Order from "../models/Order";
+import { NotFoundError } from "../utils/AppError";
+import { emitLocationUpdate } from "../config/socket/socket";
+import Logger from "../utils/logger";
 
 /**
  * Update rider location and emit real-time update
@@ -10,31 +10,31 @@ import Logger from '../utils/logger';
 export const updateRiderLocation = async (
   riderId: string,
   location: { lat: number; lng: number },
-  orderId?: string
+  orderId?: string,
 ) => {
   const rider = await Rider.findById(riderId);
 
   if (!rider) {
-    throw new NotFoundError('Rider not found');
+    throw new NotFoundError("Rider not found");
   }
 
   // Update rider's current location
   rider.currentLocation = {
-    type: 'Point',
-    coordinates: [location.lng, location.lat] // MongoDB uses [lng, lat]
+    type: "Point",
+    coordinates: [location.lng, location.lat], // MongoDB uses [lng, lat]
   };
   await rider.save();
 
   // If orderId is provided, add tracking event to order
   if (orderId) {
     const order = await Order.findById(orderId);
-    
+
     if (order) {
       order.trackingEvents.push({
-        status: 'location_update',
+        status: "location_update",
         timestamp: new Date(),
         location: { lat: location.lat, lng: location.lng },
-        note: 'Rider location updated'
+        note: "Rider location updated",
       });
       await order.save();
 
@@ -42,14 +42,14 @@ export const updateRiderLocation = async (
       emitLocationUpdate(order.orderNumber, {
         lat: location.lat,
         lng: location.lng,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
-      Logger.info('Location update emitted', {
+      Logger.info("Location update emitted", {
         riderId,
         orderId,
         orderNumber: order.orderNumber,
-        location
+        location,
       });
     }
   }
@@ -64,7 +64,7 @@ export const getRiderPerformance = async (riderId: string) => {
   const rider = await Rider.findById(riderId);
 
   if (!rider) {
-    throw new NotFoundError('Rider not found');
+    throw new NotFoundError("Rider not found");
   }
 
   return {
@@ -74,6 +74,6 @@ export const getRiderPerformance = async (riderId: string) => {
     lateDeliveries: rider.lateDeliveries,
     onTimePercentage: rider.onTimePercentage,
     averageDeliveryTime: rider.averageDeliveryTime,
-    rating: rider.rating
+    rating: rider.rating,
   };
 };

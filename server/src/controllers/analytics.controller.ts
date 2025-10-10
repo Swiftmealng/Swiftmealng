@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
-import asyncHandler from '../utils/asyncHandler';
-import DelayAnalytics from '../models/DelayAnalytics';
-import Rider from '../models/Rider';
+import { Request, Response } from "express";
+import asyncHandler from "../utils/asyncHandler";
+import DelayAnalytics from "../models/DelayAnalytics";
+import Rider from "../models/Rider";
 
 /**
  * @desc    Get delay heatmap data
@@ -17,7 +17,7 @@ export const getDelayHeatmap = asyncHandler(
     if (startDate && endDate) {
       filter.date = {
         $gte: new Date(startDate as string),
-        $lte: new Date(endDate as string)
+        $lte: new Date(endDate as string),
       };
     }
 
@@ -26,22 +26,22 @@ export const getDelayHeatmap = asyncHandler(
     }
 
     const heatmapData = await DelayAnalytics.find(filter)
-      .select('area coordinates delayedOrders averageDelayMinutes')
+      .select("area coordinates delayedOrders averageDelayMinutes")
       .lean();
 
-    const formattedData = heatmapData.map(item => ({
+    const formattedData = heatmapData.map((item) => ({
       area: item.area,
       lat: item.coordinates.coordinates[1],
       lng: item.coordinates.coordinates[0],
       delayCount: item.delayedOrders,
-      averageDelayMinutes: item.averageDelayMinutes
+      averageDelayMinutes: item.averageDelayMinutes,
     }));
 
     res.status(200).json({
       success: true,
-      data: { heatmapData: formattedData }
+      data: { heatmapData: formattedData },
     });
-  }
+  },
 );
 
 /**
@@ -58,7 +58,7 @@ export const getDelayTrends = asyncHandler(
     if (startDate && endDate) {
       filter.date = {
         $gte: new Date(startDate as string),
-        $lte: new Date(endDate as string)
+        $lte: new Date(endDate as string),
       };
     }
 
@@ -66,33 +66,30 @@ export const getDelayTrends = asyncHandler(
       { $match: filter },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
-          totalOrders: { $sum: '$totalOrders' },
-          delayedOrders: { $sum: '$delayedOrders' }
-        }
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+          totalOrders: { $sum: "$totalOrders" },
+          delayedOrders: { $sum: "$delayedOrders" },
+        },
       },
       {
         $project: {
           _id: 0,
-          date: '$_id',
+          date: "$_id",
           totalOrders: 1,
           delayedOrders: 1,
           delayPercentage: {
-            $multiply: [
-              { $divide: ['$delayedOrders', '$totalOrders'] },
-              100
-            ]
-          }
-        }
+            $multiply: [{ $divide: ["$delayedOrders", "$totalOrders"] }, 100],
+          },
+        },
       },
-      { $sort: { date: 1 } }
+      { $sort: { date: 1 } },
     ]);
 
     res.status(200).json({
       success: true,
-      data: { trends }
+      data: { trends },
     });
-  }
+  },
 );
 
 /**
@@ -103,13 +100,15 @@ export const getDelayTrends = asyncHandler(
 export const getRidersPerformance = asyncHandler(
   async (_req: Request, res: Response) => {
     const riders = await Rider.find()
-      .select('name onTimePercentage totalDeliveries averageDeliveryTime rating')
+      .select(
+        "name onTimePercentage totalDeliveries averageDeliveryTime rating",
+      )
       .sort({ onTimePercentage: -1 })
       .lean();
 
     res.status(200).json({
       success: true,
-      data: { riders }
+      data: { riders },
     });
-  }
+  },
 );
