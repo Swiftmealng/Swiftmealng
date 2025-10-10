@@ -21,6 +21,10 @@ import Logger from "./utils/logger";
 
 const app: Application = express();
 
+// Trust proxy - Required for Railway, Heroku, and other reverse proxies
+// This allows express-rate-limit to correctly identify users by IP
+app.set("trust proxy", 1);
+
 // Security middleware
 app.use(helmet());
 
