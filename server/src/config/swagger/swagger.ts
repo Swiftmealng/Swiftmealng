@@ -1,6 +1,11 @@
 import swaggerJsDoc from "swagger-jsdoc";
 import { SwaggerDefinition } from "swagger-jsdoc";
 
+// Detect if running on Railway (Railway sets RAILWAY_ENVIRONMENT variable)
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT === 'production';
+const productionUrl = 'https://swiftmealng-production.up.railway.app/api/v1';
+const developmentUrl = `http://localhost:${process.env.PORT || 5000}/api/v1`;
+
 const swaggerDefinition: SwaggerDefinition = {
   openapi: "3.0.0",
   info: {
@@ -19,10 +24,8 @@ const swaggerDefinition: SwaggerDefinition = {
   },
   servers: [
     {
-      url: process.env.NODE_ENV === 'production' 
-        ? 'https://swiftmealng-production.up.railway.app/api/v1'
-        : `http://localhost:${process.env.PORT || 5000}/api/v1`,
-      description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
+      url: isProduction ? productionUrl : developmentUrl,
+      description: isProduction ? 'Production server (Railway)' : 'Development server',
     },
   ],
   components: {
