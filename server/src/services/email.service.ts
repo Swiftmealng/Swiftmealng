@@ -15,6 +15,11 @@ const initializeEmailService = () => {
 
   try {
     const port = Number(process.env.EMAIL_PORT) || 587;
+    const isProduction = process.env.NODE_ENV === 'production' && process.env.RAILWAY_ENVIRONMENT;
+    
+    // Use longer timeouts for production environments (Railway can be slower)
+    const timeout = isProduction ? 30000 : 10000;
+    
     transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: port,
@@ -23,15 +28,22 @@ const initializeEmailService = () => {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
-      connectionTimeout: 10000, // 10 seconds
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+      connectionTimeout: timeout, // 30 seconds in production, 10 in dev
+      greetingTimeout: timeout,
+      socketTimeout: timeout,
+      // Add these for better Railway compatibility
+      tls: {
+        rejectUnauthorized: false, // Allow self-signed certificates in production
+        minVersion: 'TLSv1.2'
+      }
     });
 
     Logger.info("Email service initialized", {
       host: process.env.EMAIL_HOST,
       user: process.env.EMAIL_USER,
       port: process.env.EMAIL_PORT,
+      environment: isProduction ? 'production' : 'development',
+      timeout: timeout
     });
 
     return transporter;
@@ -151,4 +163,20 @@ export const sendPasswordResetEmail = async (
 
 export const isEmailServiceConfigured = (): boolean => {
   return transporter !== null;
+};
+
+export const verifyEmailConnection = async (): Promise<boolean> => {
+  if (!transporter) {
+    Logger.warn("Email transporter not initialized");
+    return false;
+  }
+
+  try {
+    await transporter.verify();
+    Logger.info("Email service connection verified successfully");
+    return true;
+  } catch (error) {
+    Logger.error("Email service connection verification failed", { error });
+    return false;
+  }
 };
