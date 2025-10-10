@@ -83,7 +83,23 @@ export const registerUser = async (userData: {
     verificationAttempts: 0,
   });
 
-  await sendVerificationEmail(user.email, verificationCode);
+  try {
+    const emailSent = await sendVerificationEmail(user.email, verificationCode);
+
+    if (!emailSent) {
+      // Delete the user if email failed to send
+      await User.deleteOne({ _id: user._id });
+      throw new AuthenticationError(
+        "Failed to send verification email. Please check your email configuration or try again later.",
+      );
+    }
+  } catch (emailError) {
+    // Delete the user if email sending throws an error
+    await User.deleteOne({ _id: user._id });
+    throw new AuthenticationError(
+      "Email service temporarily unavailable. Please try again later.",
+    );
+  }
 
   const userObject = user.toObject() as any;
   delete userObject.password;
