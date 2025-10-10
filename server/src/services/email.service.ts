@@ -14,19 +14,24 @@ const initializeEmailService = () => {
   }
 
   try {
+    const port = Number(process.env.EMAIL_PORT) || 587;
     transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
-      port: Number(process.env.EMAIL_PORT),
-      secure: false,
+      port: port,
+      secure: port === 465, // true for 465, false for other ports like 587
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     });
 
     Logger.info("Email service initialized", {
       host: process.env.EMAIL_HOST,
       user: process.env.EMAIL_USER,
+      port: process.env.EMAIL_PORT,
     });
 
     return transporter;
