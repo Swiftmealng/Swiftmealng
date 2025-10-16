@@ -164,7 +164,7 @@ export const verifyEmail = async (email: string, code: string) => {
   user.verificationAttemptsResetAt = undefined;
   await user.save();
 
-  await sendWelcomeEmail(user.email);
+  await sendWelcomeEmail(user.email,user.name);
 
   return { message: "Email verified successfully" };
 };
