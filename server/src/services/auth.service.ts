@@ -153,7 +153,10 @@ export const verifyEmail = async (email: string, code: string) => {
   user.verificationAttemptsResetAt = undefined;
   await user.save();
 
-  await sendWelcomeEmail(user.email,user.name);
+  // Send welcome email asynchronously (non-blocking)
+  sendWelcomeEmail(user.email, user.name).catch((error) => {
+    console.error("Failed to send welcome email:", error);
+  });
 
   return { message: "Email verified successfully" };
 };
@@ -194,7 +197,10 @@ export const resendVerificationCode = async (email: string) => {
   user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  await sendVerificationEmail(user.email, verificationCode);
+  // Send verification email asynchronously (non-blocking)
+  sendVerificationEmail(user.email, verificationCode).catch((error) => {
+    console.error("Failed to resend verification email:", error);
+  });
 
   return { message: "New verification code sent to your email" };
 };
@@ -250,7 +256,10 @@ export const requestPasswordReset = async (email: string) => {
   user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  await sendPasswordResetEmail(user.email, resetCode);
+  // Send password reset email asynchronously (non-blocking)
+  sendPasswordResetEmail(user.email, resetCode).catch((error) => {
+    console.error("Failed to send password reset email:", error);
+  });
 
   return { message: "Password reset code sent to your email" };
 };
