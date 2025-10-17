@@ -1,0 +1,97 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+
+@theme {
+  --color-primary: #fff4f1;
+  --color-solid: #dd0303;
+  --color-secondary: #fa812f;
+  --color-tertiary: #fab12f;
+  --color-white: #ffffff;
+  --color-gray: #7b7b7b;
+}
+
+html,
+body {
+  background-color: var(--color-primary);
+  scroll-behavior: smooth;
+  font-family: "Montserrat", sans-serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+@layer utilities {
+  .active-link {
+    @apply relative after:w-2/5 after:h-1 after:rounded-full after:bg-primary after:absolute after:-bottom-0.5 after:right-3
+  }
+
+  h1{
+    @apply text-[41px] md:text-[61px] font-bold
+  }
+
+  h2{
+    @apply text-[31px] md:text-[38px] font-bold
+  }
+
+  h3{
+    @apply text-[24px] md:text-[31px] font-bold
+  }
+
+  h4{
+    @apply text-[17px] md:text-[19px] font-bold
+  }
+
+  h5{
+    @apply text-[14px] md:text-[16px] font-bold
+  }
+
+  p{
+    @apply leading-[1.3] text-[14px]
+  }
+
+  .isactive {
+    color: var(--color-tertiary);
+  }
+
+}
+
+@layer components {
+  .max-pad-container {
+    @apply mx-auto max-w-[1440px] px-4 lg:px-12;
+  }
+
+  .flexCenter {
+    @apply flex items-center justify-center;
+  }
+
+  .flexBetween {
+    @apply flex items-center justify-between;
+  }
+
+  .flexStart {
+    @apply flex items-center justify-start;
+  }
+
+  .flexEnd {
+    @apply flex items-center justify-end;
+  }
+
+  .btn-solid {
+    @apply px-6 py-3 cursor-pointer active:scale-95 transition bg-solid rounded-full text-white text-sm font-medium;
+  }
+
+  .btn-light {
+    @apply px-6 py-3 cursor-pointer active:scale-95 transition bg-gray-500/15 border border-gray-500/20 rounded-full text-sm font-medium;
+  }
+
+  .btn-outline {
+    @apply px-6 py-3 cursor-pointer active:scale-95 transition bg-gray-500/15 border border-secondary rounded-full text-gray-500 text-sm font-medium;
+  }
+
+  .btn-white {
+    @apply px-6 py-3 cursor-pointer active:scale-95 transition text-black text-sm font-medium rounded-full;
+  }
+}
