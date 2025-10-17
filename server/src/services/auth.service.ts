@@ -83,23 +83,12 @@ export const registerUser = async (userData: {
     verificationAttempts: 0,
   });
 
-  try {
-    const emailSent = await sendVerificationEmail(user.email, verificationCode);
-
-    if (!emailSent) {
-      // Delete the user if email failed to send
-      await User.deleteOne({ _id: user._id });
-      throw new AuthenticationError(
-        "Failed to send verification email. Please check your email configuration or try again later.",
-      );
-    }
-  } catch (emailError) {
-    // Delete the user if email sending throws an error
-    await User.deleteOne({ _id: user._id });
-    throw new AuthenticationError(
-      "Email service temporarily unavailable. Please try again later.",
-    );
-  }
+  // Send verification email asynchronously (non-blocking)
+  sendVerificationEmail(user.email, verificationCode).catch((error) => {
+    console.error("Failed to send verification email:", error);
+    // Email failure doesn't block registration
+    // User can resend verification code later
+  });
 
   const userObject = user.toObject() as any;
   delete userObject.password;
@@ -164,7 +153,10 @@ export const verifyEmail = async (email: string, code: string) => {
   user.verificationAttemptsResetAt = undefined;
   await user.save();
 
-  await sendWelcomeEmail(user.email,user.name);
+  // Send welcome email asynchronously (non-blocking)
+  sendWelcomeEmail(user.email, user.name).catch((error) => {
+    console.error("Failed to send welcome email:", error);
+  });
 
   return { message: "Email verified successfully" };
 };
@@ -205,7 +197,10 @@ export const resendVerificationCode = async (email: string) => {
   user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  await sendVerificationEmail(user.email, verificationCode);
+  // Send verification email asynchronously (non-blocking)
+  sendVerificationEmail(user.email, verificationCode).catch((error) => {
+    console.error("Failed to resend verification email:", error);
+  });
 
   return { message: "New verification code sent to your email" };
 };
@@ -261,7 +256,10 @@ export const requestPasswordReset = async (email: string) => {
   user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  await sendPasswordResetEmail(user.email, resetCode);
+  // Send password reset email asynchronously (non-blocking)
+  sendPasswordResetEmail(user.email, resetCode).catch((error) => {
+    console.error("Failed to send password reset email:", error);
+  });
 
   return { message: "Password reset code sent to your email" };
 };
