@@ -8,7 +8,7 @@ import logoName from './logo-name.png'
 import iconFacebook from './Icon-Facebook.png'
 import iconInstagram from './icon-instagram.png'
 import iconLinkedln from './icon-Linkedin.png'
-import iconTwitter from './icon-Twitter.png'
+import iconTwitter from './Icon-Twitter.png'
 import mapPoint from './map-point.jpg'
 
 export const assets = {
