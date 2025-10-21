@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import asyncHandler from "../utils/asyncHandler";
 import Order from "../models/Order";
+import Notification from "../models/Notification";
 import { NotFoundError } from "../utils/AppError";
 import {
   sendDelayAlertSMS,
@@ -74,4 +75,89 @@ export const sendNotification = asyncHandler(
       },
     });
   },
+);
+
+/**
+ * @desc    Get user notifications
+ * @route   GET /api/v1/notifications
+ * @access  Private
+ */
+export const getNotifications = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = (req as any).user._id;
+    const { limit = 50, status } = req.query;
+
+    // Get orders for this user
+    const userOrders = await Order.find({ customerId: userId }).select("_id");
+    const orderIds = userOrders.map((order) => order._id);
+
+    const query: any = { orderId: { $in: orderIds } };
+    if (status) {
+      query.status = status;
+    }
+
+    const notifications = await Notification.find(query)
+      .sort({ createdAt: -1 })
+      .limit(Number(limit));
+
+    res.status(200).json({
+      success: true,
+      count: notifications.length,
+      data: { notifications },
+    });
+  }
+);
+
+/**
+ * @desc    Mark notification as read
+ * @route   PATCH /api/v1/notifications/:notificationId/read
+ * @access  Private
+ */
+export const markNotificationAsRead = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { notificationId } = req.params;
+
+    const notification = await Notification.findById(notificationId);
+
+    if (!notification) {
+      throw new NotFoundError("Notification not found");
+    }
+
+    // Update status to 'delivered' to mark as read
+    notification.status = "delivered";
+    notification.deliveredAt = new Date();
+    await notification.save();
+
+    res.status(200).json({
+      success: true,
+      data: { notification },
+    });
+  }
+);
+
+/**
+ * @desc    Mark all notifications as read
+ * @route   PATCH /api/v1/notifications/read-all
+ * @access  Private
+ */
+export const markAllNotificationsAsRead = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = (req as any).user._id;
+
+    // Get orders for this user
+    const userOrders = await Order.find({ customerId: userId }).select("_id");
+    const orderIds = userOrders.map((order) => order._id);
+
+    // Update all unread notifications
+    const result = await Notification.updateMany(
+      { orderId: { $in: orderIds }, status: { $ne: "delivered" } },
+      { status: "delivered", deliveredAt: new Date() }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "All notifications marked as read",
+      data: { modifiedCount: result.modifiedCount },
+    });
+  }
 );
