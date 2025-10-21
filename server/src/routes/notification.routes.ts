@@ -4,9 +4,69 @@ import { protect, restrictTo } from "../middleware/auth.middleware";
 
 const router = express.Router();
 
-// All notification routes require authentication and admin access
+// All notification routes require authentication
 router.use(protect);
-router.use(restrictTo("admin", "operations"));
+
+/**
+ * @swagger
+ * /notifications:
+ *   get:
+ *     summary: Get user notifications
+ *     tags: [Notifications]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 50
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, sent, delivered, failed]
+ *     responses:
+ *       200:
+ *         description: Notifications retrieved successfully
+ */
+router.get("/", notificationController.getNotifications);
+
+/**
+ * @swagger
+ * /notifications/{notificationId}/read:
+ *   patch:
+ *     summary: Mark notification as read
+ *     tags: [Notifications]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: notificationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Notification marked as read
+ */
+router.patch("/:notificationId/read", notificationController.markNotificationAsRead);
+
+/**
+ * @swagger
+ * /notifications/read-all:
+ *   patch:
+ *     summary: Mark all notifications as read
+ *     tags: [Notifications]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: All notifications marked as read
+ */
+router.patch("/read-all", notificationController.markAllNotificationsAsRead);
+
+router.patch("/read-all", notificationController.markAllNotificationsAsRead);
 
 /**
  * @swagger
@@ -68,6 +128,6 @@ router.use(restrictTo("admin", "operations"));
  *       403:
  *         description: Insufficient permissions
  */
-router.post("/send", notificationController.sendNotification);
+router.post("/send", restrictTo("admin", "operations"), notificationController.sendNotification);
 
 export default router;
