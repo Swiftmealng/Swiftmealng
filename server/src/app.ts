@@ -14,6 +14,10 @@ import trackRoutes from "./routes/track.routes";
 import riderRoutes from "./routes/rider.routes";
 import analyticsRoutes from "./routes/analytics.routes";
 import notificationRoutes from "./routes/notification.routes";
+import userRoutes from "./routes/user.routes";
+import favoriteRoutes from "./routes/favorite.routes";
+import ratingRoutes from "./routes/rating.routes";
+import paymentRoutes from "./routes/payment.routes";
 
 // Middleware
 import errorHandler from "./middleware/error.middleware";
@@ -98,6 +102,10 @@ app.use("/api/v1/track", trackRoutes);
 app.use("/api/v1/riders", riderRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/favorites", favoriteRoutes);
+app.use("/api/v1/ratings", ratingRoutes);
+app.use("/api/v1/payments", paymentRoutes);
 
 // 404 handler - must use use() instead of all() in Express 5.x
 app.use((req, res, _next) => {
