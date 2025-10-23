@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { orderAPI } from '../services/api';
+import { orderAPI, tokenManager } from '../services/api';
+import toast from 'react-hot-toast';
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
@@ -19,9 +20,39 @@ const CreateOrderPage = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleItemChange = (index, field, value) => {
+  // Get user's GPS location
+  const getCoordinates = () => {
+    return new Promise((resolve) => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            });
+          },
+          (error) => {
+            console.warn('Geolocation error:', error);
+            // Default to Lagos coordinates if user denies or error occurs
+            resolve({ lat: 6.5244, lng: 3.3792 });
+          }
+        );
+      } else {
+        // Browser doesn't support geolocation, use default Lagos coordinates
+        resolve({ lat: 6.5244, lng: 3.3792 });
+      }
+    });
+  };  const handleItemChange = (index, field, value) => {
     const newItems = [...orderData.items];
-    newItems[index][field] = field === 'quantity' || field === 'price' ? Number(value) : value;
+    
+    // For price and quantity, handle empty string and convert to number
+    if (field === 'quantity' || field === 'price') {
+      // Allow empty string while typing, or convert to number
+      newItems[index][field] = value === '' ? '' : Number(value);
+    } else {
+      newItems[index][field] = value;
+    }
+    
     setOrderData({ ...orderData, items: newItems });
     
     if (errors.items) {
@@ -66,7 +97,11 @@ const CreateOrderPage = () => {
   };
 
   const calculateTotal = () => {
-    return orderData.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    return orderData.items.reduce((sum, item) => {
+      const price = Number(item.price) || 0;
+      const quantity = Number(item.quantity) || 0;
+      return sum + (quantity * price);
+    }, 0);
   };
 
   const validate = () => {
@@ -76,9 +111,11 @@ const CreateOrderPage = () => {
     if (orderData.items.length === 0) {
       newErrors.items = 'At least one item is required';
     } else {
-      const invalidItem = orderData.items.find(item => 
-        !item.name.trim() || item.quantity <= 0 || item.price <= 0
-      );
+      const invalidItem = orderData.items.find(item => {
+        const price = Number(item.price) || 0;
+        const quantity = Number(item.quantity) || 0;
+        return !item.name.trim() || quantity <= 0 || price <= 0;
+      });
       if (invalidItem) {
         newErrors.items = 'All items must have name, quantity, and price';
       }
@@ -120,23 +157,36 @@ const CreateOrderPage = () => {
     setIsLoading(true);
 
     try {
+      // Get user if logged in
+      const user = tokenManager.getUser();
+      
+      // Get GPS coordinates (will use default Lagos coordinates if permission denied)
+      const coordinates = await getCoordinates();
+      
       const response = await orderAPI.create({
+        customerId: user?.id, // Include user ID if logged in
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         customerEmail: orderData.customerEmail || undefined,
         items: orderData.items,
-        deliveryAddress: orderData.deliveryAddress
+        deliveryAddress: {
+          ...orderData.deliveryAddress,
+          coordinates // Add actual coordinates
+        }
       });
 
       if (response.success) {
         setIsLoading(false);
-        // Navigate to track order page with order number
-        const orderNumber = response.data.order.orderNumber;
-        navigate(`/track-order?orderNumber=${orderNumber}`);
+        // Show success message
+        toast.success('Order placed successfully! Redirecting to payment...');
+        // Navigate to payment page with order ID
+        const orderId = response.data.order._id;
+        navigate(`/payment/${orderId}`);
       }
 
     } catch (err) {
       setIsLoading(false);
+      // Error toast is shown by interceptor, just set form error
       setErrors({ submit: err.message || 'Failed to create order. Please try again.' });
     }
   };
@@ -275,7 +325,9 @@ const CreateOrderPage = () => {
                         <input
                           type="number"
                           min="0"
-                          value={item.price}
+                          step="0.01"
+                          placeholder="0"
+                          value={item.price === 0 ? '' : item.price}
                           onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                           className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF0000] focus:border-transparent"
                         />
@@ -373,7 +425,7 @@ const CreateOrderPage = () => {
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> GPS coordinates will be automatically captured when you confirm your location.
+                  <strong>📍 Location:</strong> When you submit, we'll request your GPS coordinates for accurate delivery. If unavailable, we'll use default Lagos coordinates.
                 </p>
               </div>
             </div>
