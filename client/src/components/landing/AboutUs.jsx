@@ -20,17 +20,17 @@ const AboutUs = () => {
             <div>
               <h3 className="text-2xl font-bold mb-4">Our Promise</h3>
               <p className="text-gray-700 leading-relaxed">
-                Every SWIFTMEAL order come with confidence. We deliver food launch hunger  mode, guaranteed! E be like say na jollof rice for express-lane!
+                Every SWIFTMEAL order comes with confidence. We deliver food fast to satisfy your hunger, guaranteed! It's like jollof rice on the express lane!
               </p>
               <p className="text-gray-700 leading-relaxed mt-2">
-                Come way you fit trust.
+                A service you can always trust.
               </p>
             </div>
             
             <div>
               <h3 className="text-2xl font-bold mb-4">Why We Exist</h3>
               <p className="text-gray-700 leading-relaxed">
-                Food be the last ball say joy, no comfort, no energy! No way! We also want to bring hot delivery. No delay! No, fresher, no faster, na SWIFTMEAL!
+                Food brings joy, comfort, and energy! We want to bring you hot delivery with no delays. Nothing fresher, nothing faster - that's SWIFTMEAL!
               </p>
             </div>
           </div>
