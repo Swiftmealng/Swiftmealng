@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { adminAPI } from '../services/api';
-import { useToast } from '../hooks/useToast';
-import Toast from '../components/Toast';
+import toast from 'react-hot-toast';
 
 const AdminInvitePage = () => {
   const [formData, setFormData] = useState({
@@ -10,7 +9,6 @@ const AdminInvitePage = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
-  const { toasts, success, error } = useToast();
 
   const handleChange = (e) => {
     setFormData({
@@ -30,14 +28,14 @@ const AdminInvitePage = () => {
 
       if (data.success) {
         setInviteLink(data.data.inviteLink);
-        success('Invitation link generated successfully!');
+        toast.success('Invitation link generated successfully!');
         setFormData({ email: '', role: 'admin' });
       } else {
-        error(data.message || 'Failed to generate invite link');
+        toast.error(data.message || 'Failed to generate invite link');
       }
     } catch (err) {
       console.error('Invite error:', err);
-      error(err.message || 'Failed to generate invite link');
+      toast.error(err.message || 'Failed to generate invite link');
     } finally {
       setIsLoading(false);
     }
@@ -45,17 +43,12 @@ const AdminInvitePage = () => {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(inviteLink);
-    success('Invite link copied to clipboard!');
+    toast.success('Invite link copied to clipboard!');
   };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      {/* Toast Notifications */}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map((toast) => (
-          <Toast key={toast.id} {...toast} />
-        ))}
-      </div>
+       {/* Remove this entire Toast section */}
 
       <div className="max-w-2xl mx-auto">
         {/* Header */}
