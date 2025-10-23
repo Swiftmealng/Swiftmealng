@@ -48,6 +48,7 @@ export const createOrder = async (orderData: any) => {
       orderNumber,
       estimatedDeliveryTime,
       String(order._id),
+      orderData.customerName,
     );
   }
 

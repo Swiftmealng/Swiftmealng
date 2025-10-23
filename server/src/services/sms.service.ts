@@ -20,12 +20,36 @@ interface SendSMSParams {
   to: string;
   message: string;
   orderId?: string;
+  orderNumber?: string;
+  recipientName?: string;
   type:
-    | "order_confirmation"
-    | "status_update"
+    | "order_placed"
+    | "order_confirmed"
+    | "out_for_delivery"
+    | "delivered"
     | "delay_alert"
-    | "delivery_confirmation";
+    | "cancelled";
 }
+
+/**
+ * Format phone number to E.164 format (international)
+ */
+const formatPhoneNumber = (phone: string): string => {
+  // Remove all non-digit characters
+  let cleaned = phone.replace(/\D/g, '');
+  
+  // If starts with 0, replace with country code
+  if (cleaned.startsWith('0')) {
+    cleaned = '234' + cleaned.substring(1);
+  }
+  
+  // Add + prefix if not present
+  if (!cleaned.startsWith('+')) {
+    cleaned = '+' + cleaned;
+  }
+  
+  return cleaned;
+};
 
 /**
  * Send SMS notification
@@ -34,19 +58,28 @@ export const sendSMS = async ({
   to,
   message,
   orderId,
+  orderNumber = 'N/A',
+  recipientName = 'Customer',
   type,
 }: SendSMSParams): Promise<boolean> => {
+  // Format phone number to E.164 format
+  const formattedPhone = formatPhoneNumber(to);
+  
   if (!twilioClient || !twilioPhoneNumber) {
-    Logger.warn("SMS not sent - Twilio not configured", { to, type });
+    Logger.warn("SMS not sent - Twilio not configured", { to: formattedPhone, type });
 
     await Notification.create({
       orderId,
+      orderNumber,
       type,
       channel: "sms",
-      recipient: to,
+      recipient: {
+        name: recipientName,
+        phone: formattedPhone,
+      },
       message,
       status: "failed",
-      error: "Twilio not configured",
+      errorMessage: "Twilio not configured",
     });
     return false;
   }
@@ -61,26 +94,30 @@ export const sendSMS = async ({
       const result = await twilioClient.messages.create({
         body: message,
         from: twilioPhoneNumber,
-        to,
+        to: formattedPhone,
       });
 
       // Log successful send
       await Notification.create({
         orderId,
+        orderNumber,
         type,
         channel: "sms",
-        recipient: to,
+        recipient: {
+          name: recipientName,
+          phone: formattedPhone,
+        },
         message,
         status: "sent",
         sentAt: new Date(),
-        externalId: result.sid,
+        providerResponse: { sid: result.sid },
       });
 
-      Logger.info("SMS sent successfully", { to, type, sid: result.sid });
+      Logger.info("SMS sent successfully", { to: formattedPhone, type, sid: result.sid });
       return true;
     } catch (error: any) {
       Logger.error("SMS send failed", {
-        to,
+        to: formattedPhone,
         type,
         attempt: attemptCount,
         error: error.message,
@@ -90,12 +127,16 @@ export const sendSMS = async ({
         // All attempts failed, log failure
         await Notification.create({
           orderId,
+          orderNumber,
           type,
           channel: "sms",
-          recipient: to,
+          recipient: {
+            name: recipientName,
+            phone: formattedPhone,
+          },
           message,
           status: "failed",
-          error: error.message,
+          errorMessage: error.message,
           attempts: attemptCount,
         });
         return false;
@@ -116,6 +157,7 @@ export const sendOrderConfirmationSMS = async (
   orderNumber: string,
   estimatedTime: Date,
   orderId: string,
+  customerName?: string,
 ): Promise<boolean> => {
   const message = `Your SWIFTMEAL order ${orderNumber} has been confirmed! Estimated delivery: ${estimatedTime.toLocaleTimeString()}. Track at: ${process.env.CLIENT_URL}/track/${orderNumber}`;
 
@@ -123,7 +165,9 @@ export const sendOrderConfirmationSMS = async (
     to: phone,
     message,
     orderId,
-    type: "order_confirmation",
+    orderNumber,
+    recipientName: customerName || 'Customer',
+    type: "order_placed",
   });
 };
 
@@ -135,8 +179,10 @@ export const sendStatusUpdateSMS = async (
   orderNumber: string,
   status: string,
   orderId: string,
+  customerName?: string,
 ): Promise<boolean> => {
   const statusMessages: Record<string, string> = {
+    confirmed: "Your order has been confirmed",
     preparing: "Your order is being prepared",
     ready: "Your order is ready for pickup",
     out_for_delivery: "Your order is out for delivery",
@@ -144,12 +190,21 @@ export const sendStatusUpdateSMS = async (
   };
 
   const message = `SWIFTMEAL Order ${orderNumber}: ${statusMessages[status] || status}. Track: ${process.env.CLIENT_URL}/track/${orderNumber}`;
+  
+  // Map status to notification type
+  const typeMap: Record<string, any> = {
+    confirmed: "order_confirmed",
+    out_for_delivery: "out_for_delivery",
+    delivered: "delivered",
+  };
 
   return sendSMS({
     to: phone,
     message,
     orderId,
-    type: "status_update",
+    orderNumber,
+    recipientName: customerName || 'Customer',
+    type: typeMap[status] || "order_confirmed",
   });
 };
 
@@ -162,6 +217,7 @@ export const sendDelayAlertSMS = async (
   delayMinutes: number,
   reason: string,
   orderId: string,
+  customerName?: string,
 ): Promise<boolean> => {
   const message = `SWIFTMEAL Alert: Your order ${orderNumber} is delayed by ${delayMinutes} minutes. Reason: ${reason}. We apologize for the inconvenience. Track: ${process.env.CLIENT_URL}/track/${orderNumber}`;
 
@@ -169,6 +225,8 @@ export const sendDelayAlertSMS = async (
     to: phone,
     message,
     orderId,
+    orderNumber,
+    recipientName: customerName || 'Customer',
     type: "delay_alert",
   });
 };
@@ -180,6 +238,7 @@ export const sendDeliveryConfirmationSMS = async (
   phone: string,
   orderNumber: string,
   orderId: string,
+  customerName?: string,
 ): Promise<boolean> => {
   const message = `Your SWIFTMEAL order ${orderNumber} has been delivered! Thank you for choosing us. Rate your experience: ${process.env.CLIENT_URL}/rate/${orderNumber}`;
 
@@ -187,6 +246,8 @@ export const sendDeliveryConfirmationSMS = async (
     to: phone,
     message,
     orderId,
-    type: "delivery_confirmation",
+    orderNumber,
+    recipientName: customerName || 'Customer',
+    type: "delivered",
   });
 };
