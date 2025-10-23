@@ -1,15 +1,49 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+
+// Navigation callback for handling redirects
+let navigationCallback = null;
+
+export const setNavigationCallback = (callback) => {
+  navigationCallback = callback;
+};
+
+const handleLogout = () => {
+  tokenManager.clearTokens();
+  tokenManager.clearUser();
+  
+  // Use callback if available (React Router), otherwise fall back to window.location
+  if (navigationCallback) {
+    navigationCallback('/login');
+  } else {
+    window.location.href = '/login';
+  }
+};
 
 const api = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' }
 });
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = tokenManager.getAccessToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
@@ -18,15 +52,104 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Handle 401 errors with token refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Queue requests while refresh is in progress
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch(err => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken = tokenManager.getRefreshToken();
+      
+      if (!refreshToken) {
+        // No refresh token, clear and redirect
+        toast.error('Please log in again.');
+        handleLogout();
+        return Promise.reject(error);
+      }
+
+      try {
+        const response = await axios.post(`${API_URL}/auth/refresh-token`, {
+          refreshToken
+        });
+
+        // Backend returns { success: true, data: { accessToken } }
+        // Axios interceptor unwraps to { data: { accessToken } }
+        const { accessToken } = response.data;
+        const rememberMe = localStorage.getItem('rememberMe') === 'true';
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem('accessToken', accessToken);
+        
+        isRefreshing = false;
+        processQueue(null, accessToken);
+
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        isRefreshing = false;
+        processQueue(refreshError, null);
+        
+        // Refresh failed, clear and redirect
+        toast.error('Please log in again.');
+        handleLogout();
+        return Promise.reject(refreshError);
+      }
     }
-    const message = error.response?.data?.message || error.message || 'An error occurred';
-    return Promise.reject(new Error(message));
+
+    // Get user-friendly error message
+    const status = error.response?.status;
+    const serverMessage = error.response?.data?.message;
+    
+    let friendlyMessage = serverMessage || error.message || 'An error occurred';
+    
+    // Map common status codes to friendly messages
+    if (!serverMessage) {
+      switch (status) {
+        case 400:
+          friendlyMessage = 'Invalid request. Please check your input.';
+          break;
+        case 401:
+          friendlyMessage = 'Please log in to continue.';
+          break;
+        case 403:
+          friendlyMessage = "You don't have permission to do this.";
+          break;
+        case 404:
+          friendlyMessage = 'The requested resource was not found.';
+          break;
+        case 429:
+          friendlyMessage = 'Too many requests. Please slow down and try again.';
+          break;
+        case 500:
+          friendlyMessage = 'Something went wrong on our end. Please try again.';
+          break;
+        case 503:
+          friendlyMessage = 'Service temporarily unavailable. Please try again later.';
+          break;
+        default:
+          if (status >= 500) {
+            friendlyMessage = 'Server error. Please try again later.';
+          }
+      }
+    }
+    
+    // Show toast for errors (except 401 which is handled above)
+    if (status !== 401) {
+      toast.error(friendlyMessage);
+    }
+    
+    return Promise.reject(new Error(friendlyMessage));
   }
 );
 
@@ -67,6 +190,10 @@ export const analyticsAPI = {
   getRiderPerformance: () => api.get('/analytics/riders/performance')
 };
 
+export const adminAPI = {
+  sendInvite: (data) => api.post('/auth/admin/invite', data)
+};
+
 export const notificationAPI = {
   getAll: () => api.get('/notifications'),
   markAsRead: (notificationId) => api.patch(`/notifications/${notificationId}/read`),
@@ -101,23 +228,50 @@ export const paymentAPI = {
   verify: (reference) => api.get(`/payments/verify/${reference}`)
 };
 
+export const publicAPI = {
+  getStats: () => api.get('/public/stats')
+};
+
 export const tokenManager = {
-  setTokens: (accessToken, refreshToken) => {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
+  setTokens: (accessToken, refreshToken, rememberMe = false) => {
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem('accessToken', accessToken);
+    storage.setItem('refreshToken', refreshToken);
+    // Store the preference so we know where to look
+    localStorage.setItem('rememberMe', rememberMe.toString());
   },
-  getAccessToken: () => localStorage.getItem('accessToken'),
-  getRefreshToken: () => localStorage.getItem('refreshToken'),
+  getAccessToken: () => {
+    const rememberMe = localStorage.getItem('rememberMe') === 'true';
+    const storage = rememberMe ? localStorage : sessionStorage;
+    return storage.getItem('accessToken');
+  },
+  getRefreshToken: () => {
+    const rememberMe = localStorage.getItem('rememberMe') === 'true';
+    const storage = rememberMe ? localStorage : sessionStorage;
+    return storage.getItem('refreshToken');
+  },
   clearTokens: () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    localStorage.removeItem('rememberMe');
   },
-  setUser: (user) => localStorage.setItem('user', JSON.stringify(user)),
+  setUser: (user) => {
+    const rememberMe = localStorage.getItem('rememberMe') === 'true';
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem('user', JSON.stringify(user));
+  },
   getUser: () => {
-    const user = localStorage.getItem('user');
+    const rememberMe = localStorage.getItem('rememberMe') === 'true';
+    const storage = rememberMe ? localStorage : sessionStorage;
+    const user = storage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
-  clearUser: () => localStorage.removeItem('user')
+  clearUser: () => {
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
+  }
 };
 
 export default api;
