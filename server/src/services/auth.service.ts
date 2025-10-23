@@ -17,7 +17,7 @@ export const generateRefreshToken = (): string => {
   return crypto.randomBytes(64).toString("hex");
 };
 
-export const loginUser = async (email: string, password: string) => {
+export const loginUser = async (email: string, password: string, rememberMe: boolean = false) => {
   const user = await User.findOne({ email }).select(
     "+password +refreshToken +refreshTokenExpires",
   );
@@ -36,13 +36,16 @@ export const loginUser = async (email: string, password: string) => {
     throw new AuthenticationError("Please verify your email before logging in");
   }
 
+  // Generate access token with expiration based on rememberMe
+  const accessTokenExpiry = rememberMe ? "7d" : "15m";
+  
   const accessToken = generateToken(
     {
       id: String(user._id),
       email: user.email,
       role: user.role,
     },
-    process.env.ACCESS_TOKEN_EXPIRES_IN || "15m",
+    accessTokenExpiry,
   );
 
   const refreshToken = generateRefreshToken();
