@@ -8,6 +8,14 @@
   --color-tertiary: #fab12f;
   --color-white: #ffffff;
   --color-gray: #7b7b7b;
+  
+  /* Brand colors for consistent theming */
+  --color-brand-red: #FF0000;
+  --color-brand-red-hover: #E00000;
+  --color-brand-red-dark: #CC0000;
+  --color-brand-orange: #FF6600;
+  --color-brand-orange-hover: #E55A00;
+  --color-brand-green: #00A651;
 }
 
 html,
@@ -36,12 +44,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #FF0000;
+  background: var(--color-brand-red);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #CC0000;
+  background: var(--color-brand-red-dark);
 }
 
 @layer utilities {
@@ -114,5 +122,21 @@ body {
 
   .btn-white {
     @apply px-6 py-3 cursor-pointer active:scale-95 transition text-black text-sm font-medium rounded-full;
+  }
+
+  /* Toast animation */
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in {
+    animation: slide-in 0.3s ease-out;
   }
 }
