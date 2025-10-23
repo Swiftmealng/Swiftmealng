@@ -2,9 +2,10 @@ import { z } from "zod";
 
 export const createOrderSchema = z.object({
   body: z.object({
-    customerId: z.string({ message: "Customer ID is required" }),
+    customerId: z.string().optional(), // Optional for guest orders
     customerName: z.string({ message: "Customer name is required" }),
     customerPhone: z.string({ message: "Customer phone is required" }),
+    customerEmail: z.string().email().optional(),
     items: z
       .array(
         z.object({
@@ -23,9 +24,14 @@ export const createOrderSchema = z.object({
       street: z.string({ message: "Street is required" }),
       area: z.string({ message: "Area is required" }),
       city: z.string({ message: "City is required" }),
-      coordinates: z
-        .array(z.number())
-        .length(2, "Coordinates must be [longitude, latitude]"),
+      coordinates: z.union([
+        z.array(z.number()).length(2), // Accept [lng, lat] array
+        z.object({ lat: z.number(), lng: z.number() }) // Accept {lat, lng} object
+      ]).transform((val) => {
+        // Transform to [lng, lat] array if object
+        if (Array.isArray(val)) return val;
+        return [val.lng, val.lat];
+      }),
     }),
   }),
 });
