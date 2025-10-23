@@ -66,8 +66,6 @@ router.patch("/:notificationId/read", notificationController.markNotificationAsR
  */
 router.patch("/read-all", notificationController.markAllNotificationsAsRead);
 
-router.patch("/read-all", notificationController.markAllNotificationsAsRead);
-
 /**
  * @swagger
  * /notifications/send:
