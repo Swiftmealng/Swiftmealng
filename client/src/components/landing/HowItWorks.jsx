@@ -1,7 +1,14 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { assets } from '../../assets/assets';
 
 const HowItWorks = () => {
+  const navigate = useNavigate();
+
+  const handleOrderNow = () => {
+    navigate('/create-order');
+  };
+
   const steps = [
     {
       image: assets.banner, // Food selection image
@@ -47,7 +54,10 @@ const HowItWorks = () => {
         </div>
         
         <div className="text-center">
-          <button className="bg-[#FF6600] hover:bg-[#E55A00] text-white px-8 py-3.5 rounded-full font-semibold transition-all hover:shadow-lg inline-flex items-center gap-2">
+          <button 
+            onClick={handleOrderNow}
+            className="bg-[#FF6600] hover:bg-[#E55A00] text-white px-8 py-3.5 rounded-full font-semibold transition-all hover:shadow-lg inline-flex items-center gap-2"
+          >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
