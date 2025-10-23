@@ -30,8 +30,12 @@ const RiderDashboard = () => {
         return;
       }
       
-      // Fetch active orders for rider
-      const ordersResponse = await orderAPI.getAll({ riderId, status: 'active' });
+      // Fetch active orders for rider (using valid statuses)
+      // Valid statuses: placed, confirmed, preparing, ready, out_for_delivery, delivered, cancelled
+      const ordersResponse = await orderAPI.getAll({ 
+        riderId, 
+        status: 'out_for_delivery,ready_for_pickup,picked_up' 
+      });
       
       if (ordersResponse.success) {
         setActiveOrders(ordersResponse.data.orders);
@@ -57,7 +61,19 @@ const RiderDashboard = () => {
     }
   };
 
-  const handleUpdateStatus = async (orderId, newStatus) => {
+  const handleUpdateStatus = async (orderId, newStatus, currentStatus) => {
+    // Validate status transitions
+    const validTransitions = {
+      'ready_for_pickup': ['picked_up'],
+      'picked_up': ['delivering'],
+      'delivering': ['delivered']
+    };
+
+    if (!validTransitions[currentStatus]?.includes(newStatus)) {
+      alert(`Invalid status transition from ${currentStatus} to ${newStatus}`);
+      return;
+    }
+
     try {
       const response = await orderAPI.updateStatus(orderId, newStatus);
       
@@ -292,7 +308,7 @@ const RiderDashboard = () => {
                       {order.status === 'ready_for_pickup' && (
                         <>
                           <button
-                            onClick={() => handleUpdateStatus(order.id, 'picked_up')}
+                            onClick={() => handleUpdateStatus(order.id, 'picked_up', order.status)}
                             className="flex-1 py-3 px-4 bg-[#FF0000] text-white rounded-full font-semibold hover:bg-[#E00000] transition-colors"
                           >
                             Confirm Pickup
@@ -313,7 +329,7 @@ const RiderDashboard = () => {
                       {order.status === 'picked_up' && (
                         <>
                           <button
-                            onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                            onClick={() => handleUpdateStatus(order.id, 'delivered', order.status)}
                             className="flex-1 py-3 px-4 bg-[#00A651] text-white rounded-full font-semibold hover:bg-[#008A43] transition-colors"
                           >
                             Mark as Delivered
