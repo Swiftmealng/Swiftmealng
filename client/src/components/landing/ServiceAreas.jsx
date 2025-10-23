@@ -1,6 +1,13 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const ServiceAreas = () => {
+  const navigate = useNavigate();
+
+  const handleOrderNow = () => {
+    navigate('/create-order');
+  };
+
   const areas = [
     {
       icon: (
@@ -54,7 +61,10 @@ const ServiceAreas = () => {
         </div>
         
         <div className="text-center mt-12">
-          <button className="bg-white hover:bg-gray-50 text-[#FF0000] px-8 py-3.5 rounded-full font-semibold transition-all hover:shadow-lg inline-flex items-center gap-2">
+          <button 
+            onClick={handleOrderNow}
+            className="bg-white hover:bg-gray-50 text-[#FF0000] px-8 py-3.5 rounded-full font-semibold transition-all hover:shadow-lg inline-flex items-center gap-2"
+          >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
