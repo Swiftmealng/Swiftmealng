@@ -8,6 +8,7 @@ export interface IUser extends Document {
   password: string;
   role: "customer" | "support" | "operations" | "admin";
   phone?: string;
+  photoUrl?: string;
   isEmailVerified: boolean;
   verificationCode?: string;
   verificationCodeExpires?: Date;
@@ -59,6 +60,10 @@ const userSchema = new Schema<IUser>(
           !v || validator.isMobilePhone(v, "any", { strictMode: false }),
         message: "Invalid phone number",
       },
+    },
+    photoUrl: {
+      type: String,
+      default: null,
     },
     isEmailVerified: {
       type: Boolean,

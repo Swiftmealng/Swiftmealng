@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface IOrder extends Document {
   orderNumber: string;
-  customerId: mongoose.Types.ObjectId;
+  customerId?: mongoose.Types.ObjectId; // Optional for guest orders
   customerName: string; // Denormalized for performance
   customerPhone: string;
   riderId?: mongoose.Types.ObjectId;
@@ -63,7 +63,7 @@ const OrderSchema: Schema = new Schema(
     customerId: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "Customer ID is required"],
+      required: false, // Optional for guest orders
     },
     customerName: {
       type: String,
