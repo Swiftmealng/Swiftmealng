@@ -12,7 +12,7 @@ import asyncHandler from "../utils/asyncHandler";
  */
 export const createRating = asyncHandler(
   async (req: Request, res: Response) => {
-    const userId = (req as any).user._id;
+    const userId = (req as any).user.id;
     const {
       orderId,
       orderNumber,
@@ -30,18 +30,20 @@ export const createRating = asyncHandler(
       throw new AppError("Food and delivery ratings are required", 400);
     }
 
-    // Validate ratings are between 1-5
+    // Validate ratings are integers between 1-5
     if (
+      !Number.isInteger(foodRating) ||
+      !Number.isInteger(deliveryRating) ||
       foodRating < 1 ||
       foodRating > 5 ||
       deliveryRating < 1 ||
       deliveryRating > 5
     ) {
-      throw new AppError("Ratings must be between 1 and 5", 400);
+      throw new AppError("Ratings must be integers between 1 and 5", 400);
     }
 
-    if (riderRating && (riderRating < 1 || riderRating > 5)) {
-      throw new AppError("Rider rating must be between 1 and 5", 400);
+    if (riderRating && (!Number.isInteger(riderRating) || riderRating < 1 || riderRating > 5)) {
+      throw new AppError("Rider rating must be an integer between 1 and 5", 400);
     }
 
     // Check if order exists and belongs to user
@@ -74,20 +76,27 @@ export const createRating = asyncHandler(
       review,
     });
 
-    // Update rider's average rating if rider was rated
+    // Update rider's average rating if rider was rated using aggregation
     if (order.riderId && riderRating) {
-      const riderRatings = await Rating.find({
-        riderId: order.riderId,
-        riderRating: { $exists: true },
-      });
+      const result = await Rating.aggregate([
+        { 
+          $match: { 
+            riderId: order.riderId, 
+            riderRating: { $exists: true, $ne: null } 
+          } 
+        },
+        {
+          $group: {
+            _id: null,
+            avgRating: { $avg: "$riderRating" }
+          }
+        }
+      ]);
 
-      const avgRating =
-        riderRatings.reduce((sum, r) => sum + (r.riderRating || 0), 0) /
-        riderRatings.length;
-
-      await Rider.findByIdAndUpdate(order.riderId, {
-        rating: parseFloat(avgRating.toFixed(1)),
-      });
+      if (result.length > 0) {
+        const avgRating = parseFloat(result[0].avgRating.toFixed(1));
+        await Rider.findByIdAndUpdate(order.riderId, { rating: avgRating });
+      }
     }
 
     res.status(201).json({
@@ -99,12 +108,12 @@ export const createRating = asyncHandler(
 
 /**
  * @desc    Get rating by order ID
- * @route   GET /api/v1/ratings?orderId=xxx
+ * @route   GET /api/v1/ratings/:orderId
  * @access  Private
  */
 export const getRatingByOrder = asyncHandler(
   async (req: Request, res: Response) => {
-    const { orderId } = req.query;
+    const { orderId } = req.params;
 
     if (!orderId) {
       throw new AppError("Order ID is required", 400);
