@@ -53,14 +53,14 @@ router.post("/", ratingController.createRating);
 
 /**
  * @swagger
- * /ratings:
+ * /ratings/{orderId}:
  *   get:
  *     summary: Get rating by order ID
  *     tags: [Ratings]
  *     security:
  *       - cookieAuth: []
  *     parameters:
- *       - in: query
+ *       - in: path
  *         name: orderId
  *         required: true
  *         schema:
@@ -69,6 +69,6 @@ router.post("/", ratingController.createRating);
  *       200:
  *         description: Rating retrieved successfully
  */
-router.get("/", ratingController.getRatingByOrder);
+router.get("/:orderId", ratingController.getRatingByOrder);
 
 export default router;
