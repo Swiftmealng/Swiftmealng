@@ -15,13 +15,13 @@ const initializeEmailService = () => {
     const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
     const isSendGrid = process.env.EMAIL_HOST === 'smtp.sendgrid.net';
     
-    // Use SendGrid API in production (Railway blocks SMTP)
-    if (isProduction && isSendGrid) {
+    // Use SendGrid API in production AND development (SMTP often blocked by ISPs/firewalls)
+    if (isSendGrid) {
       sgMail.setApiKey(process.env.EMAIL_PASSWORD);
       useSendGridAPI = true;
       Logger.info("Email service initialized with SendGrid API", {
         mode: "API",
-        environment: "production"
+        environment: isProduction ? "production" : "development"
       });
       return null; // Return null since we're not using nodemailer
     }
