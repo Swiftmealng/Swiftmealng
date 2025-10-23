@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { orderAPI } from '../services/api';
 
@@ -8,12 +8,7 @@ const OrderHistoryPage = () => {
   const [filter, setFilter] = useState('all'); // all, completed, cancelled
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = filter !== 'all' ? { status: filter } : {};
@@ -22,13 +17,16 @@ const OrderHistoryPage = () => {
       if (response.success) {
         setOrders(response.data.orders);
       }
-      setIsLoading(false);
-      
     } catch (error) {
       console.error('Error fetching orders:', error);
+    } finally {
       setIsLoading(false);
     }
-  };
+  }, [filter]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const handleReorder = (order) => {
     // Navigate to create order with pre-filled items
@@ -121,17 +119,17 @@ const OrderHistoryPage = () => {
         ) : (
           <div className="space-y-4">
             {filteredOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow">
+              <div key={order._id} className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{order.id}</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">{order.orderNumber}</h3>
                       <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
                         {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 mb-2">
-                      {new Date(order.date).toLocaleDateString('en-US', { 
+                      {new Date(order.createdAt).toLocaleDateString('en-US', { 
                         year: 'numeric', 
                         month: 'long', 
                         day: 'numeric' 
@@ -161,7 +159,7 @@ const OrderHistoryPage = () => {
                           </div>
                         ) : (
                           <Link
-                            to={`/ratings/${order.id}`}
+                            to={`/ratings/${order._id}`}
                             className="text-sm text-[#FF0000] hover:text-[#CC0000] font-medium"
                           >
                             Rate this order
@@ -172,11 +170,11 @@ const OrderHistoryPage = () => {
                   </div>
 
                   <div className="flex flex-col sm:items-end gap-2">
-                    <p className="text-xl font-bold text-gray-900">₦{order.total.toLocaleString()}</p>
+                    <p className="text-xl font-bold text-gray-900">₦{order.totalAmount.toLocaleString()}</p>
                     
                     <div className="flex gap-2">
                       <Link
-                        to={`/OrderDetails/${order.id}`}
+                        to={`/OrderDetails/${order.orderNumber}`}
                         className="px-4 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         View Details
