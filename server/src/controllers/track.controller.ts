@@ -14,7 +14,7 @@ export const getOrderTracking = asyncHandler(
 
     const order = await Order.findOne({ orderNumber })
       .populate("riderId", "name phone photo currentLocation")
-      .select("-customer.customerId -__v");
+      .select("-__v");
 
     if (!order) {
       throw new NotFoundError("Order not found");
@@ -24,14 +24,26 @@ export const getOrderTracking = asyncHandler(
       success: true,
       data: {
         order: {
+          _id: order._id,
           orderNumber: order.orderNumber,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
           status: order.status,
+          items: order.items,
+          totalAmount: order.totalAmount,
+          deliveryAddress: order.deliveryAddress,
+          restaurantAddress: order.restaurantAddress,
           estimatedDeliveryTime: order.estimatedDeliveryTime,
           actualDeliveryTime: order.actualDeliveryTime,
           isDelayed: order.isDelayed,
           delayMinutes: order.delayMinutes,
-          tracking: order.trackingEvents,
-          rider: order.riderId,
+          delayReason: order.delayReason,
+          trackingEvents: order.trackingEvents,
+          riderId: order.riderId,
+          riderName: order.riderName,
+          riderPhone: order.riderPhone,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
         },
       },
     });
