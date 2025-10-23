@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import StarRating from '../components/StarRating';
+import { orderAPI, ratingsAPI } from '../services/api';
 
 const RatingsPage = () => {
   const { orderId } = useParams();
@@ -13,26 +15,39 @@ const RatingsPage = () => {
   const [hoveredRiderRating, setHoveredRiderRating] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
       setIsLoading(true);
+      setError('');
       try {
-        // TODO: Connect to backend API
-        // const response = await fetch(`API_URL/orders/${orderId}`);
+        const response = await orderAPI.getById(orderId);
         
-        setTimeout(() => {
+        if (response.success) {
+          const orderData = response.data.order;
           setOrder({
-            id: orderId,
-            items: [{ name: 'Jollof Rice with Chicken', quantity: 2 }],
-            riderName: 'Mike Johnson',
-            completedAt: new Date()
+            id: orderData._id,
+            orderNumber: orderData.orderNumber,
+            items: orderData.items || [],
+            riderName: orderData.riderId?.name || null,
+            riderId: orderData.riderId?._id || null,
+            completedAt: orderData.completedAt || new Date()
           });
-          setIsLoading(false);
-        }, 500);
-        
+
+          // Check if already rated
+          const ratingResponse = await ratingsAPI.getByOrder(orderId);
+          if (ratingResponse.success && ratingResponse.data.rating) {
+            const existingRating = ratingResponse.data.rating;
+            setRating(existingRating.foodRating || 0);
+            setRiderRating(existingRating.riderRating || 0);
+            setReview(existingRating.review || '');
+          }
+        }
       } catch (error) {
         console.error('Error fetching order:', error);
+        setError(error?.response?.data?.message || 'Failed to load order details');
+      } finally {
         setIsLoading(false);
       }
     };
@@ -44,67 +59,38 @@ const RatingsPage = () => {
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      alert('Please select a rating');
+      setError('Please select a food rating');
       return;
     }
 
     setIsSubmitting(true);
+    setError('');
     try {
-      // TODO: Connect to backend API
-      // await fetch('API_URL/ratings', {
-      //   method: 'POST',
-      //   headers: { 
-      //     'Content-Type': 'application/json',
-      //     Authorization: `Bearer ${token}`
-      //   },
-      //   body: JSON.stringify({
-      //     orderId,
-      //     foodRating: rating,
-      //     riderRating,
-      //     review
-      //   })
-      // });
+      const ratingData = {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        foodRating: rating,
+        deliveryRating: rating, // Using same rating as food for now
+        review: review.substring(0, 500) // Limit to 500 characters
+      };
+
+      // Only include rider rating if there was a rider
+      if (order.riderId && riderRating > 0) {
+        ratingData.riderRating = riderRating;
+      }
+
+      const response = await ratingsAPI.create(ratingData);
       
-      console.log('Submit rating:', { orderId, rating, riderRating, review });
-      
-      setTimeout(() => {
-        setIsSubmitting(false);
+      if (response.success) {
+        // Navigate to order history after successful submission
         navigate('/orders/history');
-      }, 1000);
-      
+      }
     } catch (error) {
       console.error('Error submitting rating:', error);
+      setError(error?.response?.data?.message || 'Failed to submit rating. Please try again.');
+    } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const renderStars = (currentRating, hoveredValue, onRate, onHover) => {
-    return (
-      <div className="flex gap-2">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            onClick={() => onRate(star)}
-            onMouseEnter={() => onHover(star)}
-            onMouseLeave={() => onHover(0)}
-            className="focus:outline-none transition-transform hover:scale-110"
-          >
-            <svg
-              className={`h-10 w-10 ${
-                star <= (hoveredValue || currentRating)
-                  ? 'text-yellow-400'
-                  : 'text-gray-300'
-              }`}
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-          </button>
-        ))}
-      </div>
-    );
   };
 
   const getRatingText = (stars) => {
@@ -144,6 +130,13 @@ const RatingsPage = () => {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-6 sm:p-8">
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
           {/* Order Items */}
           {order && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -162,7 +155,13 @@ const RatingsPage = () => {
             <p className="text-sm text-gray-600 mb-4">Rate the quality and taste of your meal</p>
             
             <div className="flex flex-col items-center">
-              {renderStars(rating, hoveredRating, setRating, setHoveredRating)}
+              <StarRating 
+                rating={rating}
+                hoveredRating={hoveredRating}
+                onRate={setRating}
+                onHover={setHoveredRating}
+                onLeave={() => setHoveredRating(0)}
+              />
               <p className="mt-3 text-sm font-medium text-gray-700">
                 {getRatingText(hoveredRating || rating)}
               </p>
@@ -176,7 +175,13 @@ const RatingsPage = () => {
               <p className="text-sm text-gray-600 mb-4">How was your experience with {order.riderName}?</p>
               
               <div className="flex flex-col items-center">
-                {renderStars(riderRating, hoveredRiderRating, setRiderRating, setHoveredRiderRating)}
+                <StarRating 
+                  rating={riderRating}
+                  hoveredRating={hoveredRiderRating}
+                  onRate={setRiderRating}
+                  onHover={setHoveredRiderRating}
+                  onLeave={() => setHoveredRiderRating(0)}
+                />
                 <p className="mt-3 text-sm font-medium text-gray-700">
                   {getRatingText(hoveredRiderRating || riderRating)}
                 </p>
