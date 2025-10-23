@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { orderAPI, paymentAPI, tokenManager } from '../services/api';
 
 const PaymentPage = () => {
-  const { orderId } = useParams();
+  const { orderId: rawOrderId } = useParams();
   const navigate = useNavigate();
+  const orderId = rawOrderId?.startsWith(':') ? rawOrderId.slice(1) : rawOrderId;
+  const user = tokenManager.getUser();
   
   const [order, setOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('card'); // card, bank_transfer, wallet
@@ -14,34 +17,73 @@ const PaymentPage = () => {
     cvv: ''
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentInitiated, setPaymentInitiated] = useState(false);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [showManualVerify, setShowManualVerify] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
-        // TODO: Connect to backend API
-        // const response = await fetch(`API_URL/orders/${orderId}`);
-        // const data = await response.json();
+        const response = await orderAPI.getById(orderId);
         
-        // Simulate API call
-        setTimeout(() => {
+        if (response.success) {
+          const orderData = response.data.order;
           setOrder({
-            id: orderId,
-            total: 5000,
-            items: [
-              { name: 'Jollof Rice with Chicken', quantity: 2, price: 2500 }
-            ],
-            deliveryFee: 500,
-            serviceCharge: 250
+            id: orderData._id,
+            orderNumber: orderData.orderNumber,
+            total: orderData.totalAmount,
+            items: orderData.items || [],
+            deliveryFee: orderData.deliveryFee || 0,
+            serviceCharge: orderData.serviceCharge || 0,
+            pickupLocation: orderData.restaurantAddress,
+            deliveryLocation: orderData.deliveryAddress
           });
-        }, 500);
+        }
       } catch (error) {
         console.error('Error fetching order:', error);
+        setError(error?.response?.data?.message || 'Failed to load order details');
       }
     };
 
-    fetchOrderDetails();
+    if (orderId) {
+      fetchOrderDetails();
+    }
   }, [orderId]);
+
+  // Check payment status after order is loaded
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      if (!order) return; // Wait for order to be loaded
+      
+      // Check if Paystack redirected back with payment reference
+      const urlParams = new URLSearchParams(window.location.search);
+      const reference = urlParams.get('reference') || urlParams.get('trxref');
+      
+      if (reference) {
+        try {
+          const response = await paymentAPI.verify(reference);
+          
+          if (response.success && response.data.status === 'success') {
+            // Payment successful, redirect to order details
+            navigate(`/OrderDetails/${order.orderNumber}`);
+            return;
+          } else {
+            // Payment not successful, show manual verification option
+            setShowManualVerify(true);
+            setPaymentReference(reference);
+          }
+        } catch (error) {
+          console.error('Payment verification error:', error);
+          // Show manual verification option on error
+          setShowManualVerify(true);
+          setPaymentReference(reference);
+        }
+      }
+    };
+
+    checkPaymentStatus();
+  }, [order, navigate]);
 
   const formatCardNumber = (value) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -102,42 +144,66 @@ const PaymentPage = () => {
   };
 
   const handlePayment = async () => {
-    if (!validateCard()) return;
+    // For card payments, Paystack handles validation via their popup
+    // For other payment methods, validate as needed
+    if (paymentMethod === 'card' && !validateCard()) {
+      return;
+    }
 
     setIsProcessing(true);
     setError('');
 
     try {
-      // TODO: Integrate Paystack or Flutterwave
-      // For Paystack:
-      // const handler = PaystackPop.setup({
-      //   key: 'your-paystack-public-key',
-      //   email: customerEmail,
-      //   amount: order.total * 100, // Amount in kobo
-      //   currency: 'NGN',
-      //   ref: orderId,
-      //   callback: function(response) {
-      //     // Verify payment on backend
-      //     verifyPayment(response.reference);
-      //   },
-      //   onClose: function() {
-      //     setIsProcessing(false);
-      //   }
-      // });
-      // handler.openIframe();
+      // Initiate payment on backend
+      const response = await paymentAPI.initiate({
+        orderId: order.id,
+        amount: order.total,
+        paymentMethod,
+        email: user?.email
+      });
 
-      // Simulate payment processing
-      console.log('Processing payment:', { orderId, paymentMethod, cardDetails });
-      
-      setTimeout(() => {
-        setIsProcessing(false);
-        // Navigate to success page
-        navigate(`/payment/success/${orderId}`);
-      }, 2000);
+      if (response.success && response.data.authorizationUrl) {
+        // Store payment reference for verification
+        setPaymentReference(response.data.reference);
+        setPaymentInitiated(true);
+        
+        // For card payments, redirect to Paystack
+        if (paymentMethod === 'card') {
+          window.location.href = response.data.authorizationUrl;
+        } else {
+          // For bank transfer, show success message and verification option
+          setIsProcessing(false);
+        }
+      } else {
+        throw new Error('Failed to initialize payment');
+      }
 
     } catch (error) {
       console.error('Payment error:', error);
-      setError('Payment failed. Please try again.');
+      setError(error?.response?.data?.message || 'Payment failed. Please try again.');
+      setIsProcessing(false);
+    }
+  };
+
+  const verifyPayment = async () => {
+    if (!paymentReference) return;
+
+    setIsProcessing(true);
+    setError('');
+
+    try {
+      const response = await paymentAPI.verify(paymentReference);
+      
+      if (response.success && response.data.status === 'success') {
+        // Payment successful, navigate to order details
+        navigate(`/OrderDetails/${order.orderNumber}`);
+      } else {
+        setError('Payment verification failed. Please try again or contact support.');
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      setError(error?.response?.data?.message || 'Payment verification failed. Please try again.');
+    } finally {
       setIsProcessing(false);
     }
   };
@@ -273,7 +339,7 @@ const PaymentPage = () => {
               )}
 
               {/* Bank Transfer Info */}
-              {paymentMethod === 'bank_transfer' && (
+              {paymentMethod === 'bank_transfer' && !paymentInitiated && (
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <h3 className="font-semibold text-gray-900 mb-2">Bank Transfer Details</h3>
                   <div className="space-y-1 text-sm text-gray-700">
@@ -281,18 +347,62 @@ const PaymentPage = () => {
                     <p><span className="font-medium">Account Name:</span> Swiftmeal Nigeria Ltd</p>
                     <p><span className="font-medium">Account Number:</span> 1234567890</p>
                     <p><span className="font-medium">Amount:</span> ₦{order.total.toLocaleString()}</p>
-                    <p className="text-xs text-gray-600 mt-2">Please use Order ID as reference</p>
+                    <p className="text-xs text-gray-600 mt-2">Please use Order Number ({order.orderNumber}) as reference</p>
                   </div>
                 </div>
               )}
 
-              {/* Wallet Payment */}
-              {paymentMethod === 'wallet' && (
-                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg text-center">
-                  <svg className="h-12 w-12 mx-auto text-purple-600 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  <p className="text-sm text-gray-700">Wallet payment coming soon!</p>
+              {/* Bank Transfer Success */}
+              {paymentMethod === 'bank_transfer' && paymentInitiated && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center">
+                    <svg className="h-5 w-5 text-green-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <p className="text-sm font-medium text-green-800">Payment initiated successfully!</p>
+                  </div>
+                  <p className="text-sm text-green-700 mt-1">
+                    Please transfer ₦{order.total.toLocaleString()} to the account details above.
+                    Use your Order Number ({order.orderNumber}) as reference.
+                  </p>
+                  <button
+                    onClick={verifyPayment}
+                    disabled={isProcessing}
+                    className="mt-3 w-full py-2 px-4 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {isProcessing ? 'Verifying...' : 'I\'ve Completed the Transfer'}
+                  </button>
+                </div>
+              )}
+
+              {/* Card Payment Redirect Notice */}
+              {paymentMethod === 'card' && paymentInitiated && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    Redirecting to secure payment page...
+                  </p>
+                </div>
+              )}
+
+              {/* Manual Payment Verification */}
+              {showManualVerify && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center">
+                    <svg className="h-5 w-5 text-yellow-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <p className="text-sm font-medium text-yellow-800">Payment verification needed</p>
+                  </div>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    We couldn't automatically verify your payment. Please click below to check your payment status.
+                  </p>
+                  <button
+                    onClick={verifyPayment}
+                    disabled={isProcessing}
+                    className="mt-3 w-full py-2 px-4 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50"
+                  >
+                    {isProcessing ? 'Verifying...' : 'Verify My Payment'}
+                  </button>
                 </div>
               )}
 

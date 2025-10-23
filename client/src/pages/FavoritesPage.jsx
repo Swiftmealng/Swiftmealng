@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { favoritesAPI } from '../services/api';
 
 const FavoritesPage = () => {
   const navigate = useNavigate();
   const [favorites, setFavorites] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchFavorites();
@@ -12,62 +14,41 @@ const FavoritesPage = () => {
 
   const fetchFavorites = async () => {
     setIsLoading(true);
+    setError('');
     try {
-      // TODO: Connect to backend API
-      // const response = await fetch('API_URL/favorites', {
-      //   headers: { Authorization: `Bearer ${token}` }
-      // });
+      const response = await favoritesAPI.getAll();
       
-      setTimeout(() => {
-        setFavorites([
-          {
-            id: 1,
-            name: 'Jollof Rice with Chicken',
-            restaurant: 'Mama Put Kitchen',
-            price: 2500,
-            image: null,
-            rating: 4.8,
-            description: 'Delicious Nigerian jollof rice with grilled chicken'
-          },
-          {
-            id: 2,
-            name: 'Fried Rice & Plantain',
-            restaurant: 'Urban Kitchen',
-            price: 3000,
-            image: null,
-            rating: 4.5,
-            description: 'Tasty fried rice with sweet plantain'
-          },
-          {
-            id: 3,
-            name: 'Amala & Ewedu',
-            restaurant: 'Yoruba Delights',
-            price: 2000,
-            image: null,
-            rating: 4.9,
-            description: 'Traditional Yoruba meal with ewedu soup'
-          }
-        ]);
-        setIsLoading(false);
-      }, 1000);
-      
+      if (response.success) {
+        // Map backend response to frontend format
+        const mappedFavorites = response.data.favorites.map(fav => ({
+          id: fav._id,
+          name: fav.mealName,
+          restaurant: fav.restaurantName || 'Restaurant',
+          price: fav.price || 0,
+          image: fav.imageUrl || null,
+          rating: 4.5, // Default rating since backend doesn't store this
+          description: fav.notes || 'Delicious meal'
+        }));
+        setFavorites(mappedFavorites);
+      }
     } catch (error) {
       console.error('Error fetching favorites:', error);
+      setError(error?.response?.data?.message || 'Failed to load favorites');
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleRemoveFavorite = async (id) => {
     try {
-      // TODO: Connect to backend API
-      // await fetch(`API_URL/favorites/${id}`, {
-      //   method: 'DELETE',
-      //   headers: { Authorization: `Bearer ${token}` }
-      // });
+      const response = await favoritesAPI.remove(id);
       
-      setFavorites(favorites.filter(item => item.id !== id));
+      if (response.success) {
+        setFavorites(favorites.filter(item => item.id !== id));
+      }
     } catch (error) {
       console.error('Error removing favorite:', error);
+      setError(error?.response?.data?.message || 'Failed to remove favorite');
     }
   };
 
@@ -98,6 +79,13 @@ const FavoritesPage = () => {
           <h1 className="text-3xl font-bold text-gray-900">My Favorites</h1>
           <p className="text-gray-600 mt-1">Your saved meals and restaurants ({favorites.length})</p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
 
         {/* Favorites Grid */}
         {favorites.length === 0 ? (
