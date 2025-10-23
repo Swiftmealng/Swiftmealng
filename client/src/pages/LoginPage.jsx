@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authAPI, tokenManager } from '../services/api';
+import { authAPI } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
@@ -50,14 +54,22 @@ const LoginPage = () => {
     setIsLoading(true);
     
     try {
-      const response = await authAPI.login(formData);
+      const response = await authAPI.login({
+        ...formData,
+        rememberMe
+      });
       
       if (response.success) {
-        // Store tokens and user data
-        tokenManager.setTokens(response.data.tokens.accessToken, response.data.tokens.refreshToken);
-        tokenManager.setUser(response.data.user);
+        // Use AuthContext login method to store tokens and user
+        login(
+          response.data.user,
+          response.data.accessToken,
+          response.data.refreshToken,
+          rememberMe
+        );
         
-        setIsLoading(false);
+        // Show success message
+        toast.success(`Welcome back, ${response.data.user.name}!`);
         
         // Redirect based on user role
         const { role } = response.data.user;
@@ -71,8 +83,11 @@ const LoginPage = () => {
       }
       
     } catch (error) {
+      // Error toast is shown by interceptor, just set form error
+      const errorMessage = error?.message || 'Invalid email or password';
+      setErrors({ submit: errorMessage });
+    } finally {
       setIsLoading(false);
-      setErrors({ submit: error.message || 'Invalid email or password' });
     }
   };
 
@@ -134,8 +149,21 @@ const LoginPage = () => {
               )}
             </div>
 
-            {/* Forgot Password Link */}
-            <div className="flex items-center justify-end">
+            {/* Remember Me and Forgot Password */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 text-[#FF0000] focus:ring-[#FF0000] border-gray-300 rounded cursor-pointer"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 cursor-pointer">
+                  Remember me (7 days)
+                </label>
+              </div>
               <Link
                 to="/forgot-password"
                 className="text-sm font-medium text-[#FF0000] hover:text-[#CC0000] transition-colors"
