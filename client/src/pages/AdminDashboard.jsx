@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { orderAPI, analyticsAPI } from '../services/api';
-import { useToast } from '../hooks/useToast';
-import Toast from '../components/Toast';
+import toast from 'react-hot-toast'
 
 const AdminDashboard = () => {
-  const { toasts, removeToast, success, error } = useToast();
+
   const [orders, setOrders] = useState([]);
   const [analytics, setAnalytics] = useState({
     totalOrders: 0,
@@ -16,9 +15,9 @@ const AdminDashboard = () => {
     activeRiders: 0
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, pending, active, completed, cancelled
+  const [filter, setFilter] = useState('all'); 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('orders'); // orders, analytics
+  const [activeTab, setActiveTab] = useState('orders'); 
 
   useEffect(() => {
     fetchDashboardData();
@@ -72,12 +71,12 @@ const AdminDashboard = () => {
       const response = await orderAPI.updateStatus(orderId, newStatus);
       
       if (response.success) {
-        success('Order status updated successfully!');
+        toast.success('Order status updated successfully!');
         fetchDashboardData(); // Refresh data
       }
     } catch (err) {
       console.error('Error updating order status:', err);
-      error('Failed to update order status. Please try again.');
+      toast.error('Failed to update order status. Please try again.');
     }
   };
 
@@ -113,7 +112,8 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      {/* Toast Notifications */}
+      {/* Remove this entire Toast section */}
+      {/*
       {toasts.map((toast) => (
         <Toast
           key={toast.id}
@@ -123,6 +123,7 @@ const AdminDashboard = () => {
           duration={0}
         />
       ))}
+      */}
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
