@@ -131,7 +131,7 @@ export const App = () => {
               <Route path="/admin/invite" element={<ProtectedRoute requireAdmin={true}><AdminInvitePage /></ProtectedRoute>} />
               
               {/* Rider routes - require authentication */}
-              <Route path="/rider/dashboard" element={<ProtectedRoute><RiderDashboard /></ProtectedRoute>} />
+              <Route path="/rider/dashboard" element={<ProtectedRoute requireRole="rider"><RiderDashboard /></ProtectedRoute>} />
               <Route path="/rider/profile" element={<ProtectedRoute><RiderProfile /></ProtectedRoute>} />
             </Routes>
           </main>
