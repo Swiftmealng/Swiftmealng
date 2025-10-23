@@ -18,6 +18,7 @@ import userRoutes from "./routes/user.routes";
 import favoriteRoutes from "./routes/favorite.routes";
 import ratingRoutes from "./routes/rating.routes";
 import paymentRoutes from "./routes/payment.routes";
+import publicRoutes from "./routes/public.routes";
 
 // Middleware
 import errorHandler from "./middleware/error.middleware";
@@ -59,15 +60,17 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan("combined", { stream }));
 }
 
-// Rate limiting
+// Rate limiting - loosened for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs (very generous)
+  message: 'Too many requests from this IP, please try again later.'
 });
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5, // limit auth endpoints to 5 requests per windowMs
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit auth endpoints to 100 requests per windowMs (much more generous)
+  message: 'Too many login attempts, please try again later.'
 });
 
 app.use("/api", limiter);
@@ -96,6 +99,7 @@ app.use(
 );
 
 // API routes
+app.use("/api/v1/public", publicRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/track", trackRoutes);
