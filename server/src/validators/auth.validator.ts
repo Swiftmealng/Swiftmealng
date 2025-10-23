@@ -8,6 +8,7 @@ export const loginSchema = z.object({
     password: z
       .string({ message: "Password is required" })
       .min(6, "Password must be at least 6 characters"),
+    rememberMe: z.boolean().optional(),
   }),
 });
 
@@ -27,6 +28,7 @@ export const registerSchema = z.object({
       .enum(["customer", "support", "operations", "admin"])
       .optional()
       .default("customer"),
+    inviteToken: z.string().optional(), // For admin invitations
   }),
 });
 
