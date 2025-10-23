@@ -12,6 +12,12 @@ import asyncHandler from "../utils/asyncHandler";
 export const getUserProfile = asyncHandler(
   async (req: Request, res: Response) => {
     const { userId } = req.params;
+    const requestingUserId = (req as any).user.id;
+
+    // Verify user owns the resource or is admin
+    if (userId !== requestingUserId && (req as any).user.role !== 'admin') {
+      throw new AppError("You are not authorized to view this profile", 403);
+    }
 
     const user = await User.findById(userId).select("-password");
 
@@ -34,9 +40,20 @@ export const getUserProfile = asyncHandler(
 export const updateUserProfile = asyncHandler(
   async (req: Request, res: Response) => {
     const { userId } = req.params;
-    const { name, phone } = req.body;
+    const requestingUserId = (req as any).user.id;
+    const { name, phone, email, password, role } = req.body;
 
-    // Don't allow updating email, password, or role through this endpoint
+    // Verify user owns the resource or is admin
+    if (userId !== requestingUserId && (req as any).user.role !== 'admin') {
+      throw new AppError("You are not authorized to update this profile", 403);
+    }
+
+    // Explicitly reject protected fields
+    if (email || password || role) {
+      throw new AppError("Cannot update email, password, or role through this endpoint", 400);
+    }
+
+    // Only allow updating name and phone
     const updateData: any = {};
     if (name) updateData.name = name;
     if (phone) updateData.phone = phone;
@@ -65,7 +82,13 @@ export const updateUserProfile = asyncHandler(
 export const changePassword = asyncHandler(
   async (req: Request, res: Response) => {
     const { userId } = req.params;
+    const requestingUserId = (req as any).user.id;
     const { currentPassword, newPassword } = req.body;
+
+    // Verify user owns the resource (admins cannot change other users' passwords)
+    if (userId !== requestingUserId) {
+      throw new AppError("You can only change your own password", 403);
+    }
 
     if (!currentPassword || !newPassword) {
       throw new AppError(
@@ -109,15 +132,27 @@ export const changePassword = asyncHandler(
 export const uploadUserPhoto = asyncHandler(
   async (req: Request, res: Response) => {
     const { userId } = req.params;
+    const requestingUserId = (req as any).user.id;
+
+    // Verify user owns the resource or is admin
+    if (userId !== requestingUserId && (req as any).user.role !== 'admin') {
+      throw new AppError("You are not authorized to upload photo for this user", 403);
+    }
 
     if (!req.file) {
       throw new AppError("Please upload a photo", 400);
     }
 
-    const user = await User.findById(userId);
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024;
+    if (req.file.size > maxSize) {
+      throw new AppError("File size must be less than 5MB", 400);
+    }
 
-    if (!user) {
-      throw new AppError("User not found", 404);
+    // Validate file type
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      throw new AppError("Only JPEG, PNG, GIF, and WebP images are allowed", 400);
     }
 
     // Upload to Cloudinary
@@ -126,19 +161,24 @@ export const uploadUserPhoto = asyncHandler(
       { folder: `users/${userId}` }
     );
 
-    // Note: User model doesn't have photoUrl field yet
-    // You may need to add it to the User model schema
-    // For now, just return the URL
     const photoUrl = result.url;
+
+    // Update user with photo URL
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { photoUrl },
+      { new: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      throw new AppError("User not found", 404);
+    }
 
     res.status(200).json({
       success: true,
       data: {
         photoUrl,
-        user: {
-          ...user.toObject(),
-          photoUrl, // Add dynamically for response
-        },
+        user: updatedUser,
       },
     });
   }
