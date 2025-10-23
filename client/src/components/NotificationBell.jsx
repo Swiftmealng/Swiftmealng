@@ -1,24 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { notificationAPI } from '../services/api';
+import { notificationAPI, tokenManager } from '../services/api';
+import { useSocket } from '../hooks/useSocket';
 
 const NotificationBell = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+  const { socket, isConnected } = useSocket();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    // TODO: Connect to Socket.io for real-time notifications
-    // const socket = io('API_URL');
-    // socket.on('notification', (notification) => {
-    //   setNotifications(prev => [notification, ...prev]);
-    //   setUnreadCount(prev => prev + 1);
-    // });
-
-    // Simulate fetching notifications
-    fetchNotifications();
+    // Only fetch notifications if user is logged in
+    const user = tokenManager.getUser();
+    if (user) {
+      fetchNotifications();
+    }
 
     // Close dropdown when clicking outside
     const handleClickOutside = (event) => {
@@ -28,13 +26,51 @@ const NotificationBell = () => {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
+    
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      // socket.disconnect();
     };
   }, []);
 
+  // Listen for real-time notifications via Socket.io
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    // Listen for new notifications
+    socket.on('notification', (notification) => {
+      console.log('New notification received:', notification);
+      setNotifications(prev => [notification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+      
+      // Optional: Show browser notification if permitted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Swiftmeal', {
+          body: notification.message,
+          icon: '/logo.png'
+        });
+      }
+    });
+
+    // Listen for notification updates
+    socket.on('notification-read', (notificationId) => {
+      setNotifications(prev =>
+        prev.map(n => n.id === notificationId || n._id === notificationId ? { ...n, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    });
+
+    return () => {
+      socket.off('notification');
+      socket.off('notification-read');
+    };
+  }, [socket, isConnected]);
+
   const fetchNotifications = async () => {
+    // Don't fetch if user is not logged in
+    if (!tokenManager.getUser()) {
+      return;
+    }
+
     try {
       const response = await notificationAPI.getAll();
       
@@ -43,7 +79,11 @@ const NotificationBell = () => {
         setUnreadCount(response.data.notifications.filter(n => !n.read).length);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      // Silently fail for 401 errors (user not authenticated)
+      if (error?.response?.status !== 401) {
+        console.error('Error fetching notifications:', error);
+      }
+      // Don't disrupt user experience
     }
   };
 
