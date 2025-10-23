@@ -84,7 +84,7 @@ export const sendNotification = asyncHandler(
  */
 export const getNotifications = asyncHandler(
   async (req: Request, res: Response) => {
-    const userId = (req as any).user._id;
+    const userId = (req as any).user.id;
     const { limit = 50, status } = req.query;
 
     // Get orders for this user
@@ -142,7 +142,7 @@ export const markNotificationAsRead = asyncHandler(
  */
 export const markAllNotificationsAsRead = asyncHandler(
   async (req: Request, res: Response) => {
-    const userId = (req as any).user._id;
+    const userId = (req as any).user.id;
 
     // Get orders for this user
     const userOrders = await Order.find({ customerId: userId }).select("_id");
