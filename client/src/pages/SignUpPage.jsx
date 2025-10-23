@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import toast from 'react-hot-toast';
 
 const SignUpPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('token');
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -15,6 +19,43 @@ const SignUpPage = () => {
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isAdminInvite, setIsAdminInvite] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState(null);
+
+  // Decode invite token and pre-fill form
+  useEffect(() => {
+    if (inviteToken) {
+      try {
+        // Decode JWT payload (basic decode without verification - backend will verify)
+        const base64Url = inviteToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        
+        const decoded = JSON.parse(jsonPayload);
+        
+        if (decoded.type === 'admin-invite' && decoded.email && decoded.role) {
+          setFormData((prev) => ({
+            ...prev,
+            email: decoded.email,
+            role: decoded.role
+          }));
+          setIsAdminInvite(true);
+          setInviteInfo({
+            email: decoded.email,
+            role: decoded.role
+          });
+        }
+      } catch (error) {
+        console.error('Invalid invite token:', error);
+        setErrors({ general: 'Invalid or expired invitation link' });
+      }
+    }
+  }, [inviteToken]);
 
   const handleChange = (e) => {
     setFormData({
@@ -71,23 +112,34 @@ const SignUpPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await authAPI.register({
+      const payload = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone || undefined,
         password: formData.password,
         role: formData.role
-      });
+      };
+
+      // Include invite token if present
+      if (inviteToken) {
+        payload.inviteToken = inviteToken;
+      }
+
+      const response = await authAPI.register(payload);
       
       if (response.success) {
-        setIsLoading(false);
+        // Show success message
+        toast.success('Account created! Please check your email for verification code.');
         // Navigate to verify email page
         navigate('/verify-email', { state: { email: formData.email } });
       }
       
     } catch (error) {
+      // Error toast is shown by interceptor, just set form error
+      const errorMessage = error?.message || 'Registration failed. Please try again.';
+      setErrors({ submit: errorMessage });
+    } finally {
       setIsLoading(false);
-      setErrors({ submit: error.message || 'Registration failed. Please try again.' });
     }
   };
 
@@ -104,6 +156,34 @@ const SignUpPage = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-sm rounded-2xl sm:px-10">
+          {/* Admin Invite Banner */}
+          {isAdminInvite && inviteInfo && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <svg 
+                  className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" 
+                  fill="currentColor" 
+                  viewBox="0 0 20 20"
+                >
+                  <path 
+                    fillRule="evenodd" 
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" 
+                    clipRule="evenodd" 
+                  />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-medium text-blue-900 mb-1">
+                    Admin Invitation
+                  </h3>
+                  <p className="text-sm text-blue-700">
+                    You've been invited as <strong className="font-semibold">{inviteInfo.role}</strong>. 
+                    Email is pre-filled and role is locked for security.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form className="space-y-5" onSubmit={handleSubmit}>
             {/* Name Field */}
             <div>
@@ -137,9 +217,12 @@ const SignUpPage = () => {
                 autoComplete="email"
                 value={formData.email}
                 onChange={handleChange}
+                disabled={isAdminInvite}
                 className={`block w-full px-4 py-3 border ${
                   errors.email ? 'border-red-500' : 'border-gray-300'
-                } rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF0000] focus:border-transparent transition-all`}
+                } rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF0000] focus:border-transparent transition-all ${
+                  isAdminInvite ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
                 placeholder="yourname@example.com"
               />
               {errors.email && <p className="mt-2 text-sm text-red-600">{errors.email}</p>}
@@ -205,22 +288,24 @@ const SignUpPage = () => {
               {errors.confirmPassword && <p className="mt-2 text-sm text-red-600">{errors.confirmPassword}</p>}
             </div>
 
-            {/* Role Selection */}
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-                I am a:
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FF0000] focus:border-transparent transition-all bg-white"
-              >
-                <option value="customer">Customer (Order food)</option>
-                <option value="support">Partner Kitchen</option>
-              </select>
-            </div>
+            {/* Role Selection - Hidden for admin invites */}
+            {!isAdminInvite && (
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+                  I am a:
+                </label>
+                <select
+                  id="role"
+                  name="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FF0000] focus:border-transparent transition-all bg-white"
+                >
+                  <option value="customer">Customer (Order food)</option>
+                  <option value="support">Partner Kitchen</option>
+                </select>
+              </div>
+            )}
 
             {/* Error Message */}
             {errors.submit && (
