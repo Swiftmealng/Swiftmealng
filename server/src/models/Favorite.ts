@@ -35,6 +35,13 @@ const favoriteSchema = new Schema<IFavorite>(
     imageUrl: {
       type: String,
       trim: true,
+      validate: {
+        validator: function(v: string) {
+          if (!v) return true; // Optional field
+          return /^https?:\/\/.+/.test(v);
+        },
+        message: 'Invalid URL format for image'
+      }
     },
     notes: {
       type: String,
@@ -47,7 +54,13 @@ const favoriteSchema = new Schema<IFavorite>(
   }
 );
 
-// Compound index to prevent duplicate favorites for same user
-favoriteSchema.index({ userId: 1, mealName: 1 }, { unique: true });
+// Compound index to prevent duplicate favorites for same user (case-insensitive)
+favoriteSchema.index({ userId: 1, mealName: 1 }, { 
+  unique: true,
+  collation: { locale: 'en', strength: 2 } // Case-insensitive
+});
+
+// Index for sorting by creation date
+favoriteSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model<IFavorite>("Favorite", favoriteSchema);
