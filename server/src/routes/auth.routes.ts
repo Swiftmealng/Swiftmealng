@@ -292,4 +292,107 @@ router.post(
   authController.resetPassword,
 );
 
+/**
+ * @swagger
+ * /auth/admin/invite:
+ *   post:
+ *     summary: Generate admin invitation link
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - role
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: newadmin@swiftmeal.ng
+ *               role:
+ *                 type: string
+ *                 enum: [admin, operations, support]
+ *                 example: admin
+ *     responses:
+ *       200:
+ *         description: Invitation generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Invitation generated successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     inviteLink:
+ *                       type: string
+ *                       example: http://localhost:5173/signup?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                     inviteToken:
+ *                       type: string
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                     email:
+ *                       type: string
+ *                       example: newadmin@swiftmeal.ng
+ *                     role:
+ *                       type: string
+ *                       example: admin
+ *                     expiresIn:
+ *                       type: string
+ *                       example: 7 days
+ *       403:
+ *         description: Unauthorized - Admin only
+ */
+router.post("/admin/invite", authenticate, authController.sendAdminInvite);
+
+/**
+ * @swagger
+ * /auth/refresh-token:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *     responses:
+ *       200:
+ *         description: Token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                       example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *       401:
+ *         description: Invalid or expired refresh token
+ */
+router.post("/refresh-token", authController.refreshAccessToken);
+
 export default router;
