@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { orderAPI } from '../services/api';
+import { orderAPI, analyticsAPI } from '../services/api';
+import { useToast } from '../hooks/useToast';
+import Toast from '../components/Toast';
 
 const AdminDashboard = () => {
+  const { toasts, removeToast, success, error } = useToast();
   const [orders, setOrders] = useState([]);
-  const [users] = useState([]); // TODO: Backend endpoint not implemented yet
   const [analytics, setAnalytics] = useState({
     totalOrders: 0,
     activeOrders: 0,
@@ -16,7 +18,7 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pending, active, completed, cancelled
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('orders'); // orders, users, analytics
+  const [activeTab, setActiveTab] = useState('orders'); // orders, analytics
 
   useEffect(() => {
     fetchDashboardData();
@@ -27,19 +29,27 @@ const AdminDashboard = () => {
     setIsLoading(true);
     try {
       const params = filter !== 'all' ? { status: filter } : {};
-      const response = await orderAPI.getAll(params);
+      const [ordersResponse, ridersResponse] = await Promise.all([
+        orderAPI.getAll(params),
+        analyticsAPI.getRiderPerformance()
+      ]);
       
-      if (response.success) {
-        setOrders(response.data.orders);
+      if (ordersResponse.success) {
+        setOrders(ordersResponse.data.orders);
         
         // Calculate analytics from orders
-        const totalOrders = response.data.orders.length;
-        const activeOrders = response.data.orders.filter(o => o.status === 'active').length;
-        const completedOrders = response.data.orders.filter(o => o.status === 'completed').length;
-        const cancelledOrders = response.data.orders.filter(o => o.status === 'cancelled').length;
-        const totalRevenue = response.data.orders
+        const totalOrders = ordersResponse.data.orders.length;
+        const activeOrders = ordersResponse.data.orders.filter(o => o.status === 'active').length;
+        const completedOrders = ordersResponse.data.orders.filter(o => o.status === 'completed').length;
+        const cancelledOrders = ordersResponse.data.orders.filter(o => o.status === 'cancelled').length;
+        const totalRevenue = ordersResponse.data.orders
           .filter(o => o.status === 'completed')
           .reduce((sum, o) => sum + (o.total || 0), 0);
+        
+        // Get active riders count from analytics
+        const activeRiders = ridersResponse.success 
+          ? ridersResponse.data.riders.filter(r => r.isOnline || r.activeOrders > 0).length 
+          : 0;
         
         setAnalytics({
           totalOrders,
@@ -47,14 +57,12 @@ const AdminDashboard = () => {
           completedOrders,
           cancelledOrders,
           totalRevenue,
-          activeRiders: 0 // TODO: Get from riders endpoint
+          activeRiders
         });
       }
-      
-      setIsLoading(false);
-      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -64,11 +72,12 @@ const AdminDashboard = () => {
       const response = await orderAPI.updateStatus(orderId, newStatus);
       
       if (response.success) {
+        success('Order status updated successfully!');
         fetchDashboardData(); // Refresh data
       }
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      alert('Failed to update order status');
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      error('Failed to update order status. Please try again.');
     }
   };
 
@@ -85,7 +94,7 @@ const AdminDashboard = () => {
   const filteredOrders = orders.filter(order => {
     const matchesFilter = filter === 'all' || order.status === filter;
     const matchesSearch = searchQuery === '' || 
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerPhone.includes(searchQuery);
     return matchesFilter && matchesSearch;
@@ -104,6 +113,17 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
+      {/* Toast Notifications */}
+      {toasts.map((toast) => (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => removeToast(toast.id)}
+          duration={0}
+        />
+      ))}
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
@@ -213,16 +233,6 @@ const AdminDashboard = () => {
                 Orders
               </button>
               <button
-                onClick={() => setActiveTab('users')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'users'
-                    ? 'border-[#FF0000] text-[#FF0000]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Users
-              </button>
-              <button
                 onClick={() => setActiveTab('analytics')}
                 className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'analytics'
@@ -280,11 +290,11 @@ const AdminDashboard = () => {
                 </div>
               ) : (
                 filteredOrders.map((order) => (
-                  <div key={order.id} className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow">
+                  <div key={order._id} className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{order.id}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">{order.orderNumber}</h3>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                           </span>
@@ -303,12 +313,12 @@ const AdminDashboard = () => {
                       </div>
 
                       <div className="flex flex-col sm:items-end gap-2">
-                        <p className="text-xl font-bold text-gray-900">₦{order.total.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-gray-900">₦{Number(order.total || 0).toLocaleString()}</p>
                         <p className="text-sm text-gray-500">{order.estimatedDelivery}</p>
                         
                         <div className="flex gap-2 mt-2">
                           <Link
-                            to={`/OrderDetails/${order.id}`}
+                            to={`/OrderDetails/${order.orderNumber}`}
                             className="px-4 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                           >
                             View Details
@@ -316,7 +326,7 @@ const AdminDashboard = () => {
                           
                           {order.status === 'pending' && (
                             <button
-                              onClick={() => handleStatusUpdate(order.id, 'active')}
+                              onClick={() => handleStatusUpdate(order._id, 'active')}
                               className="px-4 py-2 bg-[#FF0000] border border-transparent rounded-full text-sm font-medium text-white hover:bg-[#E00000] transition-colors"
                             >
                               Assign Rider
@@ -332,85 +342,153 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stats</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                          <span className="text-gray-600 font-medium">{user.name.charAt(0)}</span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                          <div className="text-sm text-gray-500">{user.id}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{user.email}</div>
-                      <div className="text-sm text-gray-500">{user.phone}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.verified ? (
-                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.role === 'customer' && `${user.orders} orders`}
-                      {user.role === 'rider' && (
-                        <div>
-                          <div>{user.deliveries} deliveries</div>
-                          <div className="text-yellow-500">★ {user.rating}</div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-[#FF0000] hover:text-[#CC0000] mr-4">Edit</button>
-                      <button className="text-gray-600 hover:text-gray-900">View</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
         {/* Analytics Tab */}
         {activeTab === 'analytics' && (
           <div className="space-y-6">
+            {/* Order Status Distribution */}
             <div className="bg-white rounded-2xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Overview</h3>
-              <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">Analytics Coming Soon</h3>
-                <p className="mt-1 text-sm text-gray-500">Charts and detailed analytics will be displayed here.</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-6">Order Status Distribution</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Pending', value: analytics.totalOrders - analytics.activeOrders - analytics.completedOrders - analytics.cancelledOrders, color: 'bg-yellow-500', lightColor: 'bg-yellow-100' },
+                  { label: 'Active', value: analytics.activeOrders, color: 'bg-blue-500', lightColor: 'bg-blue-100' },
+                  { label: 'Completed', value: analytics.completedOrders, color: 'bg-green-500', lightColor: 'bg-green-100' },
+                  { label: 'Cancelled', value: analytics.cancelledOrders, color: 'bg-red-500', lightColor: 'bg-red-100' }
+                ].map((stat) => {
+                  const percentage = analytics.totalOrders > 0 ? ((stat.value / analytics.totalOrders) * 100).toFixed(1) : 0;
+                  return (
+                    <div key={stat.label} className={`${stat.lightColor} rounded-xl p-4`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">{stat.label}</span>
+                        <span className="text-xs font-semibold text-gray-500">{percentage}%</span>
+                      </div>
+                      <div className="text-2xl font-bold text-gray-900 mb-2">{stat.value}</div>
+                      <div className="w-full bg-white rounded-full h-2">
+                        <div className={`${stat.color} h-2 rounded-full transition-all duration-500`} style={{ width: `${percentage}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Revenue & Performance Metrics */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Revenue Breakdown */}
+              <div className="bg-white rounded-2xl shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Revenue Insights</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Revenue</p>
+                      <p className="text-2xl font-bold text-gray-900">₦{analytics.totalRevenue.toLocaleString()}</p>
+                    </div>
+                    <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
+                    <div>
+                      <p className="text-sm text-gray-600">Avg. Order Value</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        ₦{analytics.completedOrders > 0 ? Math.round(analytics.totalRevenue / analytics.completedOrders).toLocaleString() : 0}
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-purple-50 rounded-xl">
+                    <div>
+                      <p className="text-sm text-gray-600">Completion Rate</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {analytics.totalOrders > 0 ? ((analytics.completedOrders / analytics.totalOrders) * 100).toFixed(1) : 0}%
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
+                      <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rider Performance */}
+              <div className="bg-white rounded-2xl shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Rider Performance</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl">
+                    <div>
+                      <p className="text-sm text-gray-600">Active Riders</p>
+                      <p className="text-2xl font-bold text-gray-900">{analytics.activeRiders}</p>
+                    </div>
+                    <div className="h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                      <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-orange-50 rounded-xl">
+                    <div>
+                      <p className="text-sm text-gray-600">Orders per Rider</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {analytics.activeRiders > 0 ? (analytics.activeOrders / analytics.activeRiders).toFixed(1) : 0}
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
+                      <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-gray-700">Cancellation Rate</p>
+                      <span className="text-xs font-semibold text-gray-500">
+                        {analytics.totalOrders > 0 ? ((analytics.cancelledOrders / analytics.totalOrders) * 100).toFixed(1) : 0}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-white rounded-full h-3">
+                      <div 
+                        className="bg-gradient-to-r from-pink-500 to-purple-500 h-3 rounded-full transition-all duration-500" 
+                        style={{ width: `${analytics.totalOrders > 0 ? (analytics.cancelledOrders / analytics.totalOrders) * 100 : 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats Bar */}
+            <div className="bg-gradient-to-r from-[#FF0000] to-[#FF6600] rounded-2xl shadow-lg p-6 text-white">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <p className="text-white/80 text-sm mb-1">Success Rate</p>
+                  <p className="text-3xl font-bold">
+                    {analytics.totalOrders > 0 ? (((analytics.completedOrders) / analytics.totalOrders) * 100).toFixed(0) : 0}%
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-white/80 text-sm mb-1">Active Now</p>
+                  <p className="text-3xl font-bold">{analytics.activeOrders}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-white/80 text-sm mb-1">Total Delivered</p>
+                  <p className="text-3xl font-bold">{analytics.completedOrders}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-white/80 text-sm mb-1">Riders Online</p>
+                  <p className="text-3xl font-bold">{analytics.activeRiders}</p>
+                </div>
               </div>
             </div>
           </div>
