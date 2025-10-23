@@ -11,7 +11,7 @@ export interface IPayment extends Document {
   status: "pending" | "success" | "failed" | "cancelled";
   authorizationUrl?: string;
   accessCode?: string;
-  providerResponse?: any;
+  providerResponse?: unknown;
   paidAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -38,7 +38,7 @@ const paymentSchema = new Schema<IPayment>(
     amount: {
       type: Number,
       required: [true, "Amount is required"],
-      min: 0,
+      min: [0.01, "Amount must be at least 0.01"],
     },
     currency: {
       type: String,
