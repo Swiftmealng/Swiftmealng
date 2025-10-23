@@ -22,10 +22,9 @@ const FooterNew = () => {
           <div>
             <h3 className="font-bold text-lg mb-4">Quick Links</h3>
             <ul className="space-y-2">
-              <li><Link to="/" className="text-gray-400 hover:text-white transition-colors">Order Food</Link></li>
-              <li><Link to="/track-order" className="text-gray-400 hover:text-white transition-colors">Track Order</Link></li>
-              <li><Link to="/explore-kitchens" className="text-gray-400 hover:text-white transition-colors">Explore Kitchens</Link></li>
-              <li><Link to="/help" className="text-gray-400 hover:text-white transition-colors">Help Center</Link></li>
+              <li><Link to="/create-order" className="text-gray-400 hover:text-white transition-colors">Order Food</Link></li>
+              <li><Link to="/favorites" className="text-gray-400 hover:text-white transition-colors">Favorites</Link></li>
+              <li><Link to="/profile" className="text-gray-400 hover:text-white transition-colors">My Account</Link></li>
             </ul>
           </div>
 
@@ -39,14 +38,22 @@ const FooterNew = () => {
             </ul>
           </div>
 
-          {/* Download App */}
+          {/* Download App / Social Media */}
           <div>
-            <h3 className="font-bold text-lg mb-4">Download App</h3>
-            <div className="flex gap-2">
-              <img src={assets.iconFacebook} alt="Facebook" className="w-6 h-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" />
-              <img src={assets.iconTwitter} alt="Twitter" className="w-6 h-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" />
-              <img src={assets.iconInstagram} alt="Instagram" className="w-6 h-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" />
-              <img src={assets.iconLinkedln} alt="LinkedIn" className="w-6 h-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" />
+            <h3 className="font-bold text-lg mb-4">Connect With Us</h3>
+            <div className="flex gap-3">
+              <a href="https://facebook.com/swiftmeal" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                <img src={assets.iconFacebook} alt="Facebook" className="w-6 h-6 opacity-70 hover:opacity-100 transition-opacity" />
+              </a>
+              <a href="https://twitter.com/swiftmeal" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
+                <img src={assets.iconTwitter} alt="Twitter" className="w-6 h-6 opacity-70 hover:opacity-100 transition-opacity" />
+              </a>
+              <a href="https://instagram.com/swiftmeal" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                <img src={assets.iconInstagram} alt="Instagram" className="w-6 h-6 opacity-70 hover:opacity-100 transition-opacity" />
+              </a>
+              <a href="https://linkedin.com/company/swiftmeal" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+                <img src={assets.iconLinkedln} alt="LinkedIn" className="w-6 h-6 opacity-70 hover:opacity-100 transition-opacity" />
+              </a>
             </div>
           </div>
         </div>
@@ -54,7 +61,7 @@ const FooterNew = () => {
         {/* Bottom Bar */}
         <div className="border-t border-gray-700 pt-6">
           <p className="text-center text-gray-400 text-sm">
-            © 2025 SWIFTMEAL. All rights reserved. | Powered by speed, served with love.
+            © {new Date().getFullYear()} SWIFTMEAL. All rights reserved. | Powered by speed, served with love.
           </p>
         </div>
       </div>
