@@ -34,13 +34,14 @@ const ForgotPasswordPage = () => {
       const response = await authAPI.forgotPassword({ email });
       
       if (response.success) {
-        setIsLoading(false);
         navigate('/reset-password', { state: { email } });
       }
       
     } catch (error) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to send reset code. Please try again.';
+      setError(errorMessage);
+    } finally {
       setIsLoading(false);
-      setError(error.message || 'Failed to send reset code. Please try again.');
     }
   };
 
