@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 
@@ -11,6 +11,14 @@ const VerifyEmailPage = () => {
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Create refs array for input fields
+  const inputRefs = useRef([]);
+  
+  // Initialize refs array
+  useEffect(() => {
+    inputRefs.current = inputRefs.current.slice(0, 6);
+  }, []);
 
   useEffect(() => {
     // Get email from navigation state
@@ -29,18 +37,18 @@ const VerifyEmailPage = () => {
     newCode[index] = value;
     setCode(newCode);
 
-    // Auto-focus next input
+    // Auto-focus next input using refs
     if (value && index < 5) {
-      document.getElementById(`code-${index + 1}`)?.focus();
+      inputRefs.current[index + 1]?.focus();
     }
 
     setError('');
   };
 
   const handleKeyDown = (index, e) => {
-    // Handle backspace
+    // Handle backspace using refs
     if (e.key === 'Backspace' && !code[index] && index > 0) {
-      document.getElementById(`code-${index - 1}`)?.focus();
+      inputRefs.current[index - 1]?.focus();
     }
   };
 
@@ -52,9 +60,9 @@ const VerifyEmailPage = () => {
     const newCode = pastedData.split('').concat(Array(6).fill('')).slice(0, 6);
     setCode(newCode);
 
-    // Focus last filled input
+    // Focus last filled input using refs
     const lastFilledIndex = Math.min(pastedData.length - 1, 5);
-    document.getElementById(`code-${lastFilledIndex}`)?.focus();
+    inputRefs.current[lastFilledIndex]?.focus();
   };
 
   const handleSubmit = async (e) => {
@@ -82,8 +90,10 @@ const VerifyEmailPage = () => {
       }
       
     } catch (error) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Invalid verification code. Please try again.';
+      setError(errorMessage);
+    } finally {
       setIsLoading(false);
-      setError(error.message || 'Invalid verification code. Please try again.');
     }
   };
 
@@ -96,14 +106,15 @@ const VerifyEmailPage = () => {
       const response = await authAPI.resendCode({ email });
       
       if (response.success) {
-        setIsResending(false);
         setSuccess('Verification code sent! Check your email.');
         setTimeout(() => setSuccess(''), 3000);
       }
       
     } catch (error) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to resend code. Please try again.';
+      setError(errorMessage);
+    } finally {
       setIsResending(false);
-      setError(error.message || 'Failed to resend code. Please try again.');
     }
   };
 
@@ -153,10 +164,10 @@ const VerifyEmailPage = () => {
               {code.map((digit, index) => (
                 <input
                   key={index}
-                  id={`code-${index}`}
+                  ref={(el) => inputRefs.current[index] = el}
                   type="text"
                   inputMode="numeric"
-                  maxLength="1"
+                  maxLength={1}
                   value={digit}
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
