@@ -7,6 +7,34 @@ import axios from "axios";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || "";
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
+const PAYSTACK_TIMEOUT = 10000; // 10 seconds
+const MAX_RETRIES = 3;
+
+/**
+ * Helper function to make Paystack API calls with retry and timeout
+ */
+const paystackRequest = async (url: string, data: any, retries = MAX_RETRIES): Promise<any> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await axios.post(url, data, {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        timeout: PAYSTACK_TIMEOUT,
+      });
+      return response;
+    } catch (error: any) {
+      if (i === retries - 1) throw error; // Last retry, throw error
+      if (error.code === 'ECONNABORTED' || error.response?.status >= 500) {
+        // Retry on timeout or server errors
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+        continue;
+      }
+      throw error; // Don't retry on client errors
+    }
+  }
+};
 
 /**
  * @desc    Initialize payment
@@ -15,18 +43,52 @@ const PAYSTACK_BASE_URL = "https://api.paystack.co";
  */
 export const initiatePayment = asyncHandler(
   async (req: Request, res: Response) => {
-    const userId = (req as any).user._id;
+    const userId = (req as any).user.id;
     const { orderId, amount, email } = req.body;
 
     if (!orderId || !amount) {
       throw new AppError("Order ID and amount are required", 400);
     }
 
-    // Verify order exists and belongs to user
-    const order = await Order.findOne({ _id: orderId, customerId: userId });
+    // Validate amount
+    if (typeof amount !== 'number' || amount <= 0) {
+      throw new AppError("Invalid amount", 400);
+    }
 
-    if (!order) {
-      throw new AppError("Order not found or unauthorized", 404);
+    // Verify order exists
+const order = await Order.findById(orderId);
+
+if (!order) {
+  throw new AppError("Order not found", 404);
+}
+
+// If order has a customerId, verify it belongs to the authenticated user
+if (order.customerId && order.customerId.toString() !== userId.toString()) {
+  throw new AppError("Unauthorized to access this order", 403);
+}
+
+    // Check for existing pending or successful payment (idempotency)
+    const existingPayment = await Payment.findOne({
+      orderId,
+      status: { $in: ['pending', 'success'] }
+    });
+
+    if (existingPayment) {
+      if (existingPayment.status === 'success') {
+        throw new AppError("Payment already completed for this order", 400);
+      }
+      
+      // Return existing pending payment
+      return res.status(200).json({
+        success: true,
+        data: {
+          payment: existingPayment,
+          authorizationUrl: existingPayment.authorizationUrl,
+          accessCode: existingPayment.accessCode,
+          reference: existingPayment.reference,
+        },
+        message: "Using existing pending payment"
+      });
     }
 
     // Generate unique reference
@@ -34,25 +96,20 @@ export const initiatePayment = asyncHandler(
       .toString(36)
       .substring(7)}`;
 
-    // Initialize Paystack payment
+    // Initialize Paystack payment with retry
     try {
-      const response = await axios.post(
+      const response = await paystackRequest(
         `${PAYSTACK_BASE_URL}/transaction/initialize`,
         {
           email: email || (req as any).user.email,
           amount: amount * 100, // Convert to kobo
           reference,
           currency: "NGN",
+          callback_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/payment/${orderId}`,
           metadata: {
             orderId: order._id,
             orderNumber: order.orderNumber,
             userId: userId.toString(),
-          },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-            "Content-Type": "application/json",
           },
         }
       );
@@ -74,7 +131,7 @@ export const initiatePayment = asyncHandler(
         providerResponse: response.data,
       });
 
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         data: {
           payment,
@@ -108,7 +165,7 @@ export const verifyPayment = asyncHandler(
       throw new AppError("Payment not found", 404);
     }
 
-    // Verify with Paystack
+    // Verify with Paystack with retry
     try {
       const response = await axios.get(
         `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
@@ -116,6 +173,7 @@ export const verifyPayment = asyncHandler(
           headers: {
             Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
           },
+          timeout: PAYSTACK_TIMEOUT,
         }
       );
 
@@ -163,3 +221,107 @@ export const verifyPayment = asyncHandler(
     }
   }
 );
+
+/**
+ * @desc    Handle Paystack webhook events
+ * @route   POST /api/v1/payments/webhook
+ * @access  Public (verified by signature)
+ */
+export const handlePaystackWebhook = asyncHandler(
+  async (req: Request, res: Response) => {
+    // Verify webhook signature
+    const hash = require('crypto')
+      .createHmac('sha512', PAYSTACK_SECRET_KEY!)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    const signature = req.headers['x-paystack-signature'];
+
+    if (hash !== signature) {
+      throw new AppError("Invalid webhook signature", 401);
+    }
+
+    const event = req.body;
+    const { event: eventType, data } = event;
+
+    // Handle different event types
+    switch (eventType) {
+      case 'charge.success':
+        await handleChargeSuccess(data);
+        break;
+      
+      case 'charge.failed':
+        await handleChargeFailed(data);
+        break;
+      
+      default:
+        console.log(`Unhandled webhook event: ${eventType}`);
+    }
+
+    // Always return 200 to acknowledge receipt
+    res.status(200).json({ success: true });
+  }
+);
+
+// Helper function to handle successful charges
+async function handleChargeSuccess(data: any) {
+  const { reference, amount, paid_at } = data;
+
+  const payment = await Payment.findOne({ reference });
+
+  if (!payment) {
+    console.error(`Payment not found for reference: ${reference}`);
+    return;
+  }
+
+  // Prevent duplicate processing
+  if (payment.status === 'success') {
+    console.log(`Payment ${reference} already marked as successful`);
+    return;
+  }
+
+  // Verify amount matches (amount from Paystack is in kobo)
+  const amountInNaira = amount / 100;
+  if (amountInNaira !== payment.amount) {
+    console.error(`Amount mismatch for ${reference}: expected ${payment.amount}, got ${amountInNaira}`);
+    return;
+  }
+
+  // Update payment
+  payment.status = 'success';
+  payment.paidAt = new Date(paid_at);
+  payment.providerResponse = data;
+  await payment.save();
+
+  // Update order status
+  await Order.findByIdAndUpdate(payment.orderId, {
+    paymentStatus: 'paid',
+    status: 'confirmed'
+  });
+
+  console.log(`Payment ${reference} marked as successful via webhook`);
+}
+
+// Helper function to handle failed charges
+async function handleChargeFailed(data: any) {
+  const { reference } = data;
+
+  const payment = await Payment.findOne({ reference });
+
+  if (!payment) {
+    console.error(`Payment not found for reference: ${reference}`);
+    return;
+  }
+
+  // Update payment
+  payment.status = 'failed';
+  payment.providerResponse = data;
+  await payment.save();
+
+  // Update order status
+  await Order.findByIdAndUpdate(payment.orderId, {
+    paymentStatus: 'failed'
+  });
+
+  console.log(`Payment ${reference} marked as failed via webhook`);
+}
