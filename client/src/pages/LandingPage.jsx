@@ -14,12 +14,16 @@ const LandingPage = () => {
     <div className="min-h-screen bg-white">
       <Hero />
       <WhySwiftmeal />
-      <HowItWorks />
+      <div id="how-it-works">
+        <HowItWorks />
+      </div>
       <ServiceAreas />
       <Stats />
       <Testimonials />
       <CallToAction />
-      <AboutUs />
+      <div id="about">
+        <AboutUs />
+      </div>
       <WhatMakesUsDifferent />
     </div>
   );
