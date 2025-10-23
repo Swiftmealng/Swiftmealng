@@ -1,12 +1,38 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { assets } from '../../assets/assets';
+import { useAuth } from '../../hooks/useAuth';
 
 const Hero = () => {
+  const { isAuthenticated, user } = useAuth();
+
+  // Determine the primary CTA based on auth state and user role
+  const getPrimaryCTA = () => {
+    if (!isAuthenticated) {
+      return { to: '/signup', text: 'Sign up' };
+    }
+
+    // User is authenticated - show role-specific CTA
+    if (user?.role === 'admin') {
+      return { to: '/admin/dashboard', text: 'Go to Dashboard' };
+    } else if (user?.role === 'rider') {
+      return { to: '/rider/dashboard', text: 'Go to Dashboard' };
+    } else {
+      // Customer
+      return { to: '/create-order', text: 'Order Now' };
+    }
+  };
+
+  const primaryCTA = getPrimaryCTA();
+
   return (
-    <section className="relative min-h-[90vh] bg-cover bg-center" style={{
-      backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${assets.banner})`
-    }}>
+    <section 
+      className="relative min-h-[90vh] bg-cover bg-center" 
+      style={{ backgroundImage: `url(${assets.banner})` }}
+    >
+      {/* Dark overlay for better text readability */}
+      <div className="absolute inset-0 bg-black/40" aria-hidden="true"></div>
+      
       <div className="relative z-10 flex flex-col items-center justify-center min-h-[90vh] text-white px-4 py-20">
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <h1 className="text-5xl md:text-7xl font-bold leading-tight">
@@ -28,10 +54,10 @@ const Hero = () => {
               Track your order
             </Link>
             <Link 
-              to="/signup" 
+              to={primaryCTA.to}
               className="bg-white hover:bg-gray-50 text-[#FF0000] px-8 py-3.5 rounded-full font-semibold transition-all hover:shadow-lg"
             >
-              Sign up
+              {primaryCTA.text}
             </Link>
           </div>
         </div>
