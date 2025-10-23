@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { authAPI } from '../services/api';
 
@@ -14,6 +14,14 @@ const ResetPasswordPage = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState('');
+  
+  // Create refs array for code input fields
+  const codeInputRefs = useRef([]);
+  
+  // Initialize refs array
+  useEffect(() => {
+    codeInputRefs.current = codeInputRefs.current.slice(0, 6);
+  }, []);
 
   useEffect(() => {
     const emailFromState = location.state?.email;
@@ -32,8 +40,9 @@ const ResetPasswordPage = () => {
     newCode[index] = value;
     setFormData({ ...formData, code: newCode });
 
+    // Auto-focus next input using refs
     if (value && index < 5) {
-      document.getElementById(`code-${index + 1}`)?.focus();
+      codeInputRefs.current[index + 1]?.focus();
     }
 
     if (errors.code) {
@@ -42,8 +51,9 @@ const ResetPasswordPage = () => {
   };
 
   const handleKeyDown = (index, e) => {
+    // Handle backspace using refs
     if (e.key === 'Backspace' && !formData.code[index] && index > 0) {
-      document.getElementById(`code-${index - 1}`)?.focus();
+      codeInputRefs.current[index - 1]?.focus();
     }
   };
 
@@ -55,8 +65,9 @@ const ResetPasswordPage = () => {
     const newCode = pastedData.split('').concat(Array(6).fill('')).slice(0, 6);
     setFormData({ ...formData, code: newCode });
 
+    // Focus last filled input using refs
     const lastFilledIndex = Math.min(pastedData.length - 1, 5);
-    document.getElementById(`code-${lastFilledIndex}`)?.focus();
+    codeInputRefs.current[lastFilledIndex]?.focus();
   };
 
   const handleChange = (e) => {
@@ -109,14 +120,15 @@ const ResetPasswordPage = () => {
       });
       
       if (response.success) {
-        setIsLoading(false);
         setSuccess('Password reset successfully!');
         setTimeout(() => navigate('/login'), 1500);
       }
       
     } catch (error) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to reset password. Please try again.';
+      setErrors({ submit: errorMessage });
+    } finally {
       setIsLoading(false);
-      setErrors({ submit: error.message || 'Failed to reset password. Please try again.' });
     }
   };
 
@@ -151,10 +163,10 @@ const ResetPasswordPage = () => {
                 {formData.code.map((digit, index) => (
                   <input
                     key={index}
-                    id={`code-${index}`}
+                    ref={(el) => codeInputRefs.current[index] = el}
                     type="text"
                     inputMode="numeric"
-                    maxLength="1"
+                    maxLength={1}
                     value={digit}
                     onChange={(e) => handleCodeChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
@@ -179,6 +191,7 @@ const ResetPasswordPage = () => {
                 id="newPassword"
                 name="newPassword"
                 type="password"
+                autoComplete="new-password"
                 value={formData.newPassword}
                 onChange={handleChange}
                 className={`block w-full px-4 py-3 border ${
@@ -200,6 +213,7 @@ const ResetPasswordPage = () => {
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
+                autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 className={`block w-full px-4 py-3 border ${
