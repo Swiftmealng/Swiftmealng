@@ -17,7 +17,12 @@ export const authenticate = asyncHandler(
   async (req: AuthRequest, _res: Response, next: NextFunction) => {
     let token: string | undefined;
 
-    if (req.cookies.accessToken) {
+    // Check Authorization header first (for API clients)
+    if (req.headers.authorization?.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    } 
+    // Fall back to cookies (for browser sessions)
+    else if (req.cookies.accessToken) {
       token = req.cookies.accessToken;
     } else if (req.cookies.jwt) {
       token = req.cookies.jwt;
