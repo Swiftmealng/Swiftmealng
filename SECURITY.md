@@ -4,7 +4,7 @@
 
 Please do not report security vulnerabilities through public GitHub issues.
 
-Instead, please send an email to [team-email@company.com].
+Instead, please send an email to [swiftmealng@gmail.com].
 
 ## Supported Versions
 
