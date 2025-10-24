@@ -294,7 +294,16 @@ export const handlePaystackWebhook = asyncHandler(
   }
 );
 
-// Helper function to handle successful charges
+/**
+ * Process a successful Paystack charge event and apply its result to the local payment and order.
+ *
+ * Verifies the webhook payload contains a matching payment reference and amount, marks the Payment as
+ * `success` with `paidAt` and provider details, and updates the associated Order to `paymentStatus: "paid"`
+ * and `status: "confirmed"`. If the payment is missing, already successful, or the amount does not match,
+ * the function logs the discrepancy and returns without modifying records.
+ *
+ * @param data - The Paystack charge event payload (must include `reference`, `amount` in kobo, and `paid_at`)
+ */
 async function handleChargeSuccess(data: any) {
   const { reference, amount, paid_at } = data;
 
@@ -333,7 +342,13 @@ async function handleChargeSuccess(data: any) {
   console.log(`Payment ${reference} marked as successful via webhook`);
 }
 
-// Helper function to handle failed charges
+/**
+ * Process a Paystack "charge.failed" webhook by marking the related payment and order as failed.
+ *
+ * Updates the Payment identified by `data.reference` to status "failed", stores the provider payload on the payment, and sets the related Order's `paymentStatus` to "failed". If no matching Payment is found the function logs the condition and returns without throwing.
+ *
+ * @param data - Paystack webhook event payload; must include a `reference` that identifies the payment
+ */
 async function handleChargeFailed(data: any) {
   const { reference } = data;
 
