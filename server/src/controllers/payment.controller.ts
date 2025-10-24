@@ -165,6 +165,18 @@ export const verifyPayment = asyncHandler(
       throw new AppError("Payment not found", 404);
     }
 
+    // If already successful, return success
+    if (payment.status === 'success') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          payment,
+          status: "success",
+          message: "Payment already verified",
+        },
+      });
+    }
+
     // Verify with Paystack with retry
     try {
       const response = await axios.get(
@@ -178,9 +190,12 @@ export const verifyPayment = asyncHandler(
       );
 
       const { status, amount } = response.data.data;
+      
+      // Convert Paystack amount from kobo to naira
+      const amountInNaira = amount / 100;
 
       // Update payment status
-      if (status === "success" && amount === payment.amount) {
+      if (status === "success" && amountInNaira === payment.amount) {
         payment.status = "success";
         payment.paidAt = new Date();
         payment.providerResponse = response.data;
@@ -189,9 +204,10 @@ export const verifyPayment = asyncHandler(
         // Update order payment status
         await Order.findByIdAndUpdate(payment.orderId, {
           paymentStatus: "paid",
+          status: "confirmed"
         });
 
-        res.status(200).json({
+        return res.status(200).json({
           success: true,
           data: {
             payment,
@@ -199,12 +215,26 @@ export const verifyPayment = asyncHandler(
             message: "Payment verified successfully",
           },
         });
+      } else if (status === "success" && amountInNaira !== payment.amount) {
+        // Amount mismatch
+        payment.status = "failed";
+        payment.providerResponse = response.data;
+        await payment.save();
+
+        return res.status(400).json({
+          success: false,
+          data: {
+            payment,
+            status: "failed",
+            message: `Payment amount mismatch. Expected ₦${payment.amount}, got ₦${amountInNaira}`,
+          },
+        });
       } else {
         payment.status = "failed";
         payment.providerResponse = response.data;
         await payment.save();
 
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           data: {
             payment,
@@ -214,6 +244,7 @@ export const verifyPayment = asyncHandler(
         });
       }
     } catch (error: any) {
+      console.error('Paystack verification error:', error.response?.data || error.message);
       throw new AppError(
         error.response?.data?.message || "Payment verification failed",
         500
@@ -263,7 +294,16 @@ export const handlePaystackWebhook = asyncHandler(
   }
 );
 
-// Helper function to handle successful charges
+/**
+ * Process a successful Paystack charge event and apply its result to the local payment and order.
+ *
+ * Verifies the webhook payload contains a matching payment reference and amount, marks the Payment as
+ * `success` with `paidAt` and provider details, and updates the associated Order to `paymentStatus: "paid"`
+ * and `status: "confirmed"`. If the payment is missing, already successful, or the amount does not match,
+ * the function logs the discrepancy and returns without modifying records.
+ *
+ * @param data - The Paystack charge event payload (must include `reference`, `amount` in kobo, and `paid_at`)
+ */
 async function handleChargeSuccess(data: any) {
   const { reference, amount, paid_at } = data;
 
@@ -302,7 +342,13 @@ async function handleChargeSuccess(data: any) {
   console.log(`Payment ${reference} marked as successful via webhook`);
 }
 
-// Helper function to handle failed charges
+/**
+ * Process a Paystack "charge.failed" webhook by marking the related payment and order as failed.
+ *
+ * Updates the Payment identified by `data.reference` to status "failed", stores the provider payload on the payment, and sets the related Order's `paymentStatus` to "failed". If no matching Payment is found the function logs the condition and returns without throwing.
+ *
+ * @param data - Paystack webhook event payload; must include a `reference` that identifies the payment
+ */
 async function handleChargeFailed(data: any) {
   const { reference } = data;
 
