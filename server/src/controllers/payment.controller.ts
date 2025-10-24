@@ -165,6 +165,18 @@ export const verifyPayment = asyncHandler(
       throw new AppError("Payment not found", 404);
     }
 
+    // If already successful, return success
+    if (payment.status === 'success') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          payment,
+          status: "success",
+          message: "Payment already verified",
+        },
+      });
+    }
+
     // Verify with Paystack with retry
     try {
       const response = await axios.get(
@@ -178,9 +190,12 @@ export const verifyPayment = asyncHandler(
       );
 
       const { status, amount } = response.data.data;
+      
+      // Convert Paystack amount from kobo to naira
+      const amountInNaira = amount / 100;
 
       // Update payment status
-      if (status === "success" && amount === payment.amount) {
+      if (status === "success" && amountInNaira === payment.amount) {
         payment.status = "success";
         payment.paidAt = new Date();
         payment.providerResponse = response.data;
@@ -189,9 +204,10 @@ export const verifyPayment = asyncHandler(
         // Update order payment status
         await Order.findByIdAndUpdate(payment.orderId, {
           paymentStatus: "paid",
+          status: "confirmed"
         });
 
-        res.status(200).json({
+        return res.status(200).json({
           success: true,
           data: {
             payment,
@@ -199,12 +215,26 @@ export const verifyPayment = asyncHandler(
             message: "Payment verified successfully",
           },
         });
+      } else if (status === "success" && amountInNaira !== payment.amount) {
+        // Amount mismatch
+        payment.status = "failed";
+        payment.providerResponse = response.data;
+        await payment.save();
+
+        return res.status(400).json({
+          success: false,
+          data: {
+            payment,
+            status: "failed",
+            message: `Payment amount mismatch. Expected ₦${payment.amount}, got ₦${amountInNaira}`,
+          },
+        });
       } else {
         payment.status = "failed";
         payment.providerResponse = response.data;
         await payment.save();
 
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           data: {
             payment,
@@ -214,6 +244,7 @@ export const verifyPayment = asyncHandler(
         });
       }
     } catch (error: any) {
+      console.error('Paystack verification error:', error.response?.data || error.message);
       throw new AppError(
         error.response?.data?.message || "Payment verification failed",
         500
